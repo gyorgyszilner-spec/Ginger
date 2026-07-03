@@ -2,125 +2,131 @@
 <html lang="hu">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Digitális kimenet teszt</title>
 <style>
   :root{
     --bg: #12151a; --panel: #1b1f27; --panel-2: #232834; --line: #2c313d;
     --text: #e8eaed; --text-dim: #8b93a3;
-    --accent: #4fd1a5; --accent-dim: #2c7a5f;
-    --warn: #e8a23d; --danger: #e05d5d;
+    --accent: #4fd1a5; --warn: #e8a23d; --danger: #e05d5d;
     --mono: 'SF Mono', 'Roboto Mono', Consolas, monospace;
   }
-  *{box-sizing:border-box;}
-  .hidden{ display:none !important; }
-  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text);
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{ background:var(--bg); color:var(--text); height:100%; overflow:hidden;
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-    -webkit-tap-highlight-color:transparent; }
-  body{ max-width:480px; margin:0 auto; padding:14px 14px 40px; }
+    -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
+  .hidden{ display:none !important; }
 
-  header{ margin-bottom:14px; }
-  header h1{ font-size:19px; font-weight:700; margin:0 0 2px; }
-  header p{ margin:0; font-size:12.5px; color:var(--text-dim); }
+  /* ---------- intro (portrait-safe, shown before start) ---------- */
+  #screenIntro{ height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:14px; padding:24px; }
+  #screenIntro h1{ font-size:19px; }
+  #screenIntro p{ color:var(--text-dim); font-size:13px; max-width:320px; line-height:1.5; }
+  #screenIntro .rotate-hint{ font-size:34px; }
+  button{ font-family:inherit; font-weight:600; border:none; border-radius:10px; cursor:pointer; }
+  .btn-primary{ background:var(--accent); color:#0a1210; font-size:15px; padding:14px 22px; }
 
-  .warn-box{ background:rgba(232,162,61,0.1); border:1px solid rgba(232,162,61,0.3); color:var(--warn);
-    border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:14px; line-height:1.5; }
-  .ok-box{ background:rgba(79,209,165,0.08); border:1px solid rgba(79,209,165,0.3); color:var(--accent);
-    border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:14px; line-height:1.5; }
+  /* ---------- main landscape layout ---------- */
+  #screenMain{ height:100vh; width:100vw; display:flex; flex-direction:column; }
 
-  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
-  .card h2{ font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); margin:0 0 12px; font-weight:600; }
+  .topbar{ height:42px; flex:0 0 auto; display:flex; align-items:center; gap:10px;
+    padding:0 8px; border-bottom:1px solid var(--line); background:var(--panel); }
+  .topbar .title{ font-size:12px; font-weight:700; white-space:nowrap; }
+  .topbar .sens{ flex:1; display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-dim); }
+  .topbar input[type=range]{ flex:1; accent-color:var(--accent); height:18px; }
+  .topbar .sens-val{ font-family:var(--mono); width:32px; text-align:right; }
+  .topbar .icon-btn{ background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
+    font-size:10.5px; padding:6px 9px; border-radius:8px; }
+  .topbar .icon-btn.active{ color:var(--accent); border-color:var(--accent); }
 
-  button{ font-family:inherit; font-size:15px; font-weight:600; border:none; border-radius:11px;
-    padding:14px; cursor:pointer; -webkit-user-select:none; user-select:none; width:100%; }
-  button:active{ transform:scale(0.98); }
-  .btn-primary{ background:var(--accent); color:#0a1210; }
-  .btn-ghost{ background:transparent; color:var(--text-dim); border:1px solid var(--line); font-weight:500; }
-  .row{ display:flex; gap:10px; }
-  .row > *{ flex:1; }
+  .main-row{ flex:1; display:flex; overflow:hidden; }
 
-  /* sensitivity slider */
-  .slider-row{ display:flex; align-items:center; gap:10px; margin-bottom:4px; }
-  .slider-row input[type=range]{ flex:1; accent-color: var(--accent); }
-  .slider-val{ font-family:var(--mono); font-size:13px; width:44px; text-align:right; color:var(--text-dim); }
+  .phys-btn{ flex:0 0 68px; display:flex; align-items:center; justify-content:center;
+    background:var(--panel-2); border:none; font-size:12px; font-weight:700; color:var(--text-dim);
+    writing-mode:vertical-rl; letter-spacing:0.05em; }
+  .phys-btn.pressed{ background:rgba(79,209,165,0.22); color:var(--accent); }
+  .phys-btn.left{ border-right:1px solid var(--line); }
+  .phys-btn.right{ border-left:1px solid var(--line); }
 
-  /* gesture buttons grid */
-  .gesture-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .gesture-btn{
-    background:var(--panel-2); border:2px solid var(--line); border-radius:12px;
-    padding:12px 10px; text-align:center; transition:background .08s, border-color .08s, transform .08s;
-  }
-  .gesture-btn .icon{ font-size:22px; display:block; margin-bottom:4px; }
-  .gesture-btn .label{ font-size:11.5px; color:var(--text-dim); line-height:1.3; }
-  .gesture-btn.pressed{
-    background:rgba(79,209,165,0.15); border-color:var(--accent); transform:scale(0.97);
-  }
-  .gesture-btn.pressed .label{ color:var(--text); font-weight:600; }
+  .gesture-area{ flex:1; overflow:auto; padding:6px; }
+  .gesture-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
+    grid-auto-rows:1fr; gap:5px; height:100%; }
+  .gesture-btn{ background:var(--panel-2); border:1.5px solid var(--line); border-radius:9px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    transition:background .07s, border-color .07s; padding:2px; }
+  .gesture-btn .icon{ font-size:17px; line-height:1; }
+  .gesture-btn .label{ font-size:9px; color:var(--text-dim); text-align:center; line-height:1.15; }
+  .gesture-btn.pressed{ background:rgba(79,209,165,0.2); border-color:var(--accent); }
+  .gesture-btn.pressed .label{ color:var(--text); font-weight:700; }
 
-  /* physical buttons */
-  .phys-btn{
-    background:var(--panel-2); border:2px solid var(--line); border-radius:14px;
-    padding:22px 10px; text-align:center; font-size:15px; font-weight:700;
-    transition:background .08s, border-color .08s;
-  }
-  .phys-btn.pressed{ background:rgba(79,209,165,0.2); border-color:var(--accent); color:var(--accent); }
-
-  /* event log */
-  .log{ font-family:var(--mono); font-size:11.5px; max-height:220px; overflow-y:auto; }
-  .log-row{ display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--line); }
-  .log-row:last-child{ border-bottom:none; }
+  /* ---------- log overlay ---------- */
+  #logOverlay{ position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:20;
+    display:flex; align-items:center; justify-content:center; padding:14px; }
+  #logPanel{ background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; }
+  #logPanel .log-head{ display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; border-bottom:1px solid var(--line); flex:0 0 auto; }
+  #logPanel .log-head h2{ font-size:12px; }
+  #logPanel .log-actions{ display:flex; gap:6px; }
+  #logPanel .log-actions button{ font-size:10.5px; padding:6px 10px; background:var(--panel-2);
+    color:var(--text-dim); border:1px solid var(--line); border-radius:7px; }
+  #logList{ flex:1; overflow-y:auto; font-family:var(--mono); font-size:10px; padding:6px 10px; }
+  .log-row{ padding:5px 0; border-bottom:1px solid var(--line); line-height:1.5; }
+  .log-row .id{ color:var(--text); font-weight:700; }
   .log-row .down{ color:var(--accent); }
-  .log-row .up{ color:var(--text-dim); }
-  .empty{ color:var(--text-dim); font-size:13px; text-align:center; padding:14px 0; }
+  .log-row .up{ color:var(--warn); }
+  .log-row .params{ color:var(--text-dim); display:block; }
+  .empty{ color:var(--text-dim); font-size:12px; text-align:center; padding:20px 0; }
 </style>
 </head>
 <body>
 
-<header>
+<!-- ===================== INTRO ===================== -->
+<div id="screenIntro">
+  <div class="rotate-hint">📱↔️</div>
   <h1>Digitális kimenet teszt</h1>
-  <p>Gomb-le / gomb-fel események a kalibrált mozdulatokból</p>
-</header>
-
-<div id="profileWarning" class="warn-box hidden">
-  Nincs mentett kalibrációs profil ezen az eszközön — alapértelmezett, hozzávetőleges küszöbökkel indulok.
-  A pontosabb működéshez előbb futtasd le a kalibrációt.
-</div>
-<div id="profileOk" class="ok-box hidden">Kalibrációs profil betöltve ✓</div>
-
-<div class="card" id="permCard">
-  <h2>Indítás</h2>
+  <p>Ezt a képernyőt <b>oldalra fordított (fekvő) telefonnal</b> használd,
+     ugyanúgy, ahogy a játékban tartanád magad előtt.</p>
   <button class="btn-primary" id="permBtn">Szenzorok engedélyezése és indítás</button>
+  <p id="profileNote" style="font-size:11.5px;"></p>
 </div>
 
-<div class="card hidden" id="sensitivityCard">
-  <h2>Érzékenység</h2>
-  <div class="slider-row">
-    <span style="font-size:12px; color:var(--text-dim);">Laza</span>
-    <input type="range" id="sensSlider" min="20" max="80" value="45">
-    <span style="font-size:12px; color:var(--text-dim);">Szigorú</span>
+<!-- ===================== MAIN (landscape) ===================== -->
+<div id="screenMain" class="hidden">
+  <div class="topbar">
+    <span class="title">Kimenet</span>
+    <div class="sens">
+      <span>Laza</span>
+      <input type="range" id="sensSlider" min="20" max="80" value="45">
+      <span>Szigorú</span>
+      <span class="sens-val" id="sensVal">45%</span>
+    </div>
+    <button class="icon-btn" id="logToggleBtn">Log</button>
   </div>
-  <div style="text-align:center;"><span class="slider-val" id="sensVal">45%</span> a kalibrált csúcsérték %-ában — ekkora kitérésnél kapcsol be a gomb</div>
-</div>
 
-<div class="card hidden" id="physCard">
-  <h2>Fizikai gombok</h2>
-  <div class="row">
-    <div class="phys-btn" id="btnLeft">BAL</div>
-    <div class="phys-btn" id="btnRight">JOBB</div>
+  <div class="main-row">
+    <div class="phys-btn left" id="btnLeft">BAL</div>
+
+    <div class="gesture-area">
+      <div class="gesture-grid" id="gestureGrid"></div>
+    </div>
+
+    <div class="phys-btn right" id="btnRight">JOBB</div>
   </div>
 </div>
 
-<div class="card hidden" id="gestureCard">
-  <h2>Mozgás-gombok</h2>
-  <div class="gesture-grid" id="gestureGrid"></div>
-</div>
-
-<div class="card hidden" id="logCard">
-  <h2>Esemény-log</h2>
-  <div class="log" id="logList"><div class="empty">Még nincs esemény.</div></div>
-  <div class="row" style="margin-top:10px;">
-    <button class="btn-ghost" id="clearLogBtn">Log törlése</button>
-    <button class="btn-ghost" id="exportLogBtn">Exportálás JSON</button>
+<!-- ===================== LOG OVERLAY ===================== -->
+<div id="logOverlay" class="hidden">
+  <div id="logPanel">
+    <div class="log-head">
+      <h2>Esemény-log — élő paraméterekkel</h2>
+      <div class="log-actions">
+        <button id="clearLogBtn">Törlés</button>
+        <button id="exportLogBtn">Export JSON</button>
+        <button id="closeLogBtn">Bezár</button>
+      </div>
+    </div>
+    <div id="logList"><div class="empty">Még nincs esemény.</div></div>
   </div>
 </div>
 
@@ -128,8 +134,6 @@
 (function(){
   const CAL_KEY = 'motion_calibration_profile_v1';
 
-  // fallback thresholds if no calibration profile exists yet — rough guesses
-  // based on earlier test sessions, clearly inferior to a real per-user profile
   const DEFAULT_PROFILE = {
     baseline: { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 },
     squat:     { dominantAxis:'rb', dominantSignedValue:35,  firstPeakSignedValue:35 },
@@ -148,54 +152,46 @@
     run:       { peakAccelMag:6.5 }
   };
 
-  // ---------- gesture definitions ----------
   const DIRECTIONAL_GESTURES = [
     { id:'squat',      icon:'⬇️', label:'Guggolás' },
     { id:'reach',      icon:'⬆️', label:'Felnyúlás' },
-    { id:'sideLeft',   icon:'⬅️', label:'Oldallépés bal' },
-    { id:'sideRight',  icon:'➡️', label:'Oldallépés jobb' },
-    { id:'stepBack',   icon:'⬇️', label:'Hátralépés' },
+    { id:'sideLeft',   icon:'⬅️', label:'Old.bal' },
+    { id:'sideRight',  icon:'➡️', label:'Old.jobb' },
+    { id:'stepBack',   icon:'⏪', label:'Hátra' },
     { id:'leanLeft',   icon:'↩️', label:'Dőlés bal' },
     { id:'leanRight',  icon:'↪️', label:'Dőlés jobb' },
-    { id:'turnLeft',   icon:'↺', label:'Fordulás bal' },
-    { id:'turnRight',  icon:'↻', label:'Fordulás jobb' },
-    { id:'twistLeft',  icon:'🔄', label:'Csavarás bal' },
-    { id:'twistRight', icon:'🔃', label:'Csavarás jobb' },
-    { id:'phonePush',  icon:'📱', label:'Kinyújtás' },
+    { id:'turnLeft',   icon:'↺', label:'Ford. bal' },
+    { id:'turnRight',  icon:'↻', label:'Ford. jobb' },
+    { id:'twistLeft',  icon:'🔄', label:'Csav. bal' },
+    { id:'twistRight', icon:'🔃', label:'Csav. jobb' },
+    { id:'phonePush',  icon:'📱', label:'Kinyújt' },
   ];
 
   let profile = DEFAULT_PROFILE;
   let usingRealProfile = false;
-
   try{
     const raw = localStorage.getItem(CAL_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      // merge: prefer real profile values, fall back to defaults for anything missing
-      profile = Object.assign({}, DEFAULT_PROFILE, parsed);
-      usingRealProfile = true;
-    }
+    if(raw){ profile = Object.assign({}, DEFAULT_PROFILE, JSON.parse(raw)); usingRealProfile = true; }
   }catch(e){}
+  document.getElementById('profileNote').textContent = usingRealProfile
+    ? 'Kalibrációs profil betöltve ✓'
+    : 'Nincs mentett profil — közelítő alapértékekkel indul.';
 
-  document.getElementById(usingRealProfile ? 'profileOk' : 'profileWarning').classList.remove('hidden');
-
-  // ---------- gesture state machines ----------
-  const gestureState = {}; // id -> { pressed: bool, smoothed: number }
+  const gestureState = {};
   DIRECTIONAL_GESTURES.forEach(function(g){ gestureState[g.id] = { pressed:false, smoothed:0 }; });
-  gestureState['walk'] = { pressed:false, smoothed:0 };
-  gestureState['run']  = { pressed:false, smoothed:0 };
+  gestureState.walk = { pressed:false, smoothed:0 };
+  gestureState.run  = { pressed:false, smoothed:0 };
+  gestureState.__mag = { smoothed:0 };
 
-  let sensitivity = 0.45; // fraction of calibrated peak used as press threshold
-  const HYSTERESIS_RATIO = 0.6; // release threshold = press threshold * this
+  let sensitivity = 0.45;
+  const HYSTERESIS_RATIO = 0.6;
+  const SMOOTH_ALPHA = 0.35;
 
-  const eventLog = [];
-  const activeSince = {}; // id -> timestamp when pressed, for computing hold duration
-
-  // ---------- sensors ----------
   let baseline = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
   if(profile.baseline){ baseline = Object.assign({}, baseline, profile.baseline); }
 
-  const SMOOTH_ALPHA = 0.35; // exponential moving average factor, higher = less smoothing
+  const eventLog = [];
+  const activeSince = {};
 
   function handleMotion(e){
     const acc = e.acceleration || e.accelerationIncludingGravity || {};
@@ -205,7 +201,6 @@
       ra: (rot.alpha||0) - baseline.ra, rb: (rot.beta||0) - baseline.rb, rg: (rot.gamma||0) - baseline.rg
     };
 
-    // directional gestures
     DIRECTIONAL_GESTURES.forEach(function(g){
       const cal = profile[g.id];
       if(!cal) return;
@@ -222,21 +217,18 @@
       const releaseThr = pressThr * HYSTERESIS_RATIO;
 
       let shouldPress, shouldRelease;
-      if(calVal >= 0){
-        shouldPress = st.smoothed >= pressThr;
-        shouldRelease = st.smoothed <= releaseThr;
-      }else{
-        shouldPress = st.smoothed <= pressThr;
-        shouldRelease = st.smoothed >= releaseThr;
-      }
+      if(calVal >= 0){ shouldPress = st.smoothed >= pressThr; shouldRelease = st.smoothed <= releaseThr; }
+      else{ shouldPress = st.smoothed <= pressThr; shouldRelease = st.smoothed >= releaseThr; }
 
-      if(!st.pressed && shouldPress){ setPressed(g.id, true); }
-      else if(st.pressed && shouldRelease){ setPressed(g.id, false); }
+      const meta = { axis:axis, value: round3(st.smoothed), pressThr: round3(pressThr),
+                     releaseThr: round3(releaseThr), sensitivity: sensitivity };
+
+      if(!st.pressed && shouldPress){ setPressed(g.id, true, meta); }
+      else if(st.pressed && shouldRelease){ setPressed(g.id, false, meta); }
     });
 
-    // amplitude-based: walk / run, mutually favoring the higher band
     const accelMag = Math.sqrt(raw.ax*raw.ax + raw.ay*raw.ay + raw.az*raw.az);
-    const stMag = gestureState['__mag'] || (gestureState['__mag'] = { smoothed:0 });
+    const stMag = gestureState.__mag;
     stMag.smoothed = stMag.smoothed + SMOOTH_ALPHA * (accelMag - stMag.smoothed);
 
     const walkPeak = (profile.walk && profile.walk.peakAccelMag) || 2.3;
@@ -244,19 +236,25 @@
     const runPress = runPeak * sensitivity, runRelease = runPress * HYSTERESIS_RATIO;
     const walkPress = walkPeak * sensitivity, walkRelease = walkPress * HYSTERESIS_RATIO;
 
-    const runSt = gestureState['run'];
-    if(!runSt.pressed && stMag.smoothed >= runPress){ setPressed('run', true); }
-    else if(runSt.pressed && stMag.smoothed <= runRelease){ setPressed('run', false); }
+    const runSt = gestureState.run;
+    const runMeta = { axis:'accelMag', value: round3(stMag.smoothed), pressThr: round3(runPress),
+                       releaseThr: round3(runRelease), sensitivity: sensitivity };
+    if(!runSt.pressed && stMag.smoothed >= runPress){ setPressed('run', true, runMeta); }
+    else if(runSt.pressed && stMag.smoothed <= runRelease){ setPressed('run', false, runMeta); }
 
-    const walkSt = gestureState['walk'];
+    const walkSt = gestureState.walk;
+    const walkMeta = { axis:'accelMag', value: round3(stMag.smoothed), pressThr: round3(walkPress),
+                        releaseThr: round3(walkRelease), sensitivity: sensitivity };
     const walkCandidate = stMag.smoothed >= walkPress && stMag.smoothed < runPress;
-    if(!walkSt.pressed && walkCandidate){ setPressed('walk', true); }
-    else if(walkSt.pressed && stMag.smoothed <= walkRelease){ setPressed('walk', false); }
+    if(!walkSt.pressed && walkCandidate){ setPressed('walk', true, walkMeta); }
+    else if(walkSt.pressed && stMag.smoothed <= walkRelease){ setPressed('walk', false, walkMeta); }
   }
 
-  function setPressed(id, pressed){
+  function round3(n){ return Math.round(n*1000)/1000; }
+
+  function setPressed(id, pressed, meta){
     gestureState[id].pressed = pressed;
-    logEvent(id, pressed ? 'down' : 'up');
+    logEvent(id, pressed ? 'down' : 'up', meta);
     renderGestureButton(id);
   }
 
@@ -265,23 +263,18 @@
     const needsPerm = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
     function start(){
       window.addEventListener('devicemotion', handleMotion);
-      document.getElementById('permCard').classList.add('hidden');
-      ['sensitivityCard','physCard','gestureCard','logCard'].forEach(function(id){
-        document.getElementById(id).classList.remove('hidden');
-      });
+      document.getElementById('screenIntro').classList.add('hidden');
+      document.getElementById('screenMain').classList.remove('hidden');
       buildGestureGrid();
     }
     if(needsPerm){
       DeviceMotionEvent.requestPermission().then(function(r){
-        if(r === 'granted'){ start(); }
-        else{ alert('Szenzor-hozzáférés nélkül nem működik a teszt.'); }
+        if(r === 'granted'){ start(); } else{ alert('Szenzor-hozzáférés nélkül nem működik a teszt.'); }
       }).catch(function(){ alert('Hiba az engedélykérésnél.'); });
-    }else{
-      start();
-    }
+    }else{ start(); }
   });
 
-  // ---------- sensitivity slider ----------
+  // ---------- sensitivity ----------
   const sensSlider = document.getElementById('sensSlider');
   const sensVal = document.getElementById('sensVal');
   sensSlider.addEventListener('input', function(){
@@ -307,47 +300,56 @@
   }
   function renderGestureButton(id){
     const el = document.getElementById('g_' + id);
-    if(!el) return;
-    el.classList.toggle('pressed', gestureState[id].pressed);
+    if(el) el.classList.toggle('pressed', gestureState[id].pressed);
   }
 
   // ---------- physical buttons ----------
-  const btnLeft = document.getElementById('btnLeft');
-  const btnRight = document.getElementById('btnRight');
   function wirePhysButton(el, id){
-    function down(ev){ ev.preventDefault(); el.classList.add('pressed'); logEvent(id, 'down'); }
-    function up(ev){ ev.preventDefault(); el.classList.remove('pressed'); logEvent(id, 'up'); }
+    function down(ev){ ev.preventDefault(); el.classList.add('pressed'); logEvent(id, 'down', {}); }
+    function up(ev){ ev.preventDefault(); el.classList.remove('pressed'); logEvent(id, 'up', {}); }
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointerup', up);
     el.addEventListener('pointerleave', up);
   }
-  wirePhysButton(btnLeft, 'buttonLeft');
-  wirePhysButton(btnRight, 'buttonRight');
+  wirePhysButton(document.getElementById('btnLeft'), 'buttonLeft');
+  wirePhysButton(document.getElementById('btnRight'), 'buttonRight');
 
-  // ---------- event log ----------
+  // ---------- log ----------
   const logList = document.getElementById('logList');
-  function logEvent(id, phase){
+  function logEvent(id, phase, meta){
     const now = performance.now();
     let holdMs = null;
     if(phase === 'down'){ activeSince[id] = now; }
     else if(phase === 'up' && activeSince[id] !== undefined){ holdMs = now - activeSince[id]; }
-    eventLog.push({ id: id, phase: phase, t: Date.now(), holdMs: holdMs });
+    eventLog.push(Object.assign({ id:id, phase:phase, t:Date.now(), holdMs:holdMs }, meta || {}));
     renderLog();
   }
   function renderLog(){
-    const recent = eventLog.slice(-40).reverse();
+    const recent = eventLog.slice(-60).reverse();
     if(recent.length === 0){ logList.innerHTML = '<div class="empty">Még nincs esemény.</div>'; return; }
     logList.innerHTML = recent.map(function(e){
       const time = new Date(e.t).toLocaleTimeString('hu-HU', { hour12:false }) + '.' + String(e.t % 1000).padStart(3,'0');
-      const holdText = e.holdMs !== null ? ' (' + (e.holdMs/1000).toFixed(2) + 's)' : '';
-      return '<div class="log-row"><span>' + e.id + '</span><span class="' + e.phase + '">' +
-             (e.phase === 'down' ? 'LE' : 'FEL' + holdText) + ' · ' + time + '</span></div>';
+      const holdText = e.holdMs !== null && e.holdMs !== undefined ? ' · tartás ' + (e.holdMs/1000).toFixed(2) + 's' : '';
+      const paramsText = (e.axis !== undefined)
+        ? 'tengely: ' + e.axis + ' · érték: ' + e.value + ' · le-küszöb: ' + e.pressThr +
+          ' · fel-küszöb: ' + e.releaseThr + ' · érzékenység: ' + Math.round((e.sensitivity||0)*100) + '%'
+        : '';
+      return '<div class="log-row"><span class="id">' + e.id + '</span> — ' +
+             '<span class="' + e.phase + '">' + (e.phase==='down'?'LE':'FEL') + '</span>' +
+             holdText + ' · ' + time +
+             (paramsText ? '<span class="params">' + paramsText + '</span>' : '') +
+             '</div>';
     }).join('');
   }
 
+  document.getElementById('logToggleBtn').addEventListener('click', function(){
+    document.getElementById('logOverlay').classList.remove('hidden');
+  });
+  document.getElementById('closeLogBtn').addEventListener('click', function(){
+    document.getElementById('logOverlay').classList.add('hidden');
+  });
   document.getElementById('clearLogBtn').addEventListener('click', function(){
-    eventLog.length = 0;
-    renderLog();
+    eventLog.length = 0; renderLog();
   });
   document.getElementById('exportLogBtn').addEventListener('click', function(){
     const blob = new Blob([JSON.stringify(eventLog, null, 2)], { type:'application/json' });
