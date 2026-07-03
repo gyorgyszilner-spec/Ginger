@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Szenzorteszt — mozgásvezérlés kalibráció</title>
+<title>Kalibráció — mozgásvezérlés</title>
 <style>
   :root{
     --bg: #12151a;
@@ -19,487 +19,468 @@
     --mono: 'SF Mono', 'Roboto Mono', Consolas, monospace;
   }
   *{box-sizing:border-box;}
-  html,body{
-    margin:0; padding:0; background:var(--bg); color:var(--text);
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-    -webkit-tap-highlight-color:transparent;
-  }
-  body{ padding:14px 14px 40px; max-width:520px; margin:0 auto; }
+    -webkit-tap-highlight-color:transparent; overflow-x:hidden; }
+  body{ max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; }
 
-  header{ margin-bottom:16px; }
-  header h1{
-    font-size:19px; font-weight:700; margin:0 0 2px;
-    letter-spacing:-0.01em;
-  }
-  header p{ margin:0; font-size:13px; color:var(--text-dim); }
+  /* ---------- top progress ---------- */
+  .progress-wrap{ padding:14px 16px 0; }
+  .progress-track{ height:6px; background:var(--panel-2); border-radius:4px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--accent); border-radius:4px; transition:width .35s ease; width:0%; }
+  .progress-label{ display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-top:6px; }
 
-  .status-bar{
-    display:flex; align-items:center; gap:8px;
-    font-size:12px; color:var(--text-dim);
-    background:var(--panel); border:1px solid var(--line);
-    border-radius:10px; padding:9px 12px; margin-bottom:14px;
-  }
-  .dot{ width:8px; height:8px; border-radius:50%; background:var(--danger); flex-shrink:0; }
-  .dot.live{ background:var(--accent); box-shadow:0 0 0 3px rgba(79,209,165,0.15); }
+  /* ---------- screens ---------- */
+  .screen{ flex:1; display:flex; flex-direction:column; padding:20px 16px 30px; }
+  .hidden{ display:none !important; }
 
-  .card{
-    background:var(--panel); border:1px solid var(--line);
-    border-radius:14px; padding:16px; margin-bottom:12px;
-  }
-  .card h2{
-    font-size:11px; text-transform:uppercase; letter-spacing:0.06em;
-    color:var(--text-dim); margin:0 0 12px; font-weight:600;
-  }
+  /* intro / outro */
+  .center-block{ flex:1; display:flex; flex-direction:column; justify-content:center; text-align:center; gap:14px; }
+  .center-block h1{ font-size:22px; margin:0; letter-spacing:-0.01em; }
+  .center-block p{ color:var(--text-dim); font-size:14.5px; line-height:1.6; margin:0; }
 
-  label{ display:block; font-size:13px; color:var(--text-dim); margin-bottom:6px; }
-  input[type=text], select{
-    width:100%; background:var(--panel-2); border:1px solid var(--line);
-    color:var(--text); border-radius:9px; padding:11px 12px; font-size:15px;
-    margin-bottom:12px; appearance:none; -webkit-appearance:none;
+  /* step card */
+  .step-stage{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; text-align:center; }
+  .step-icon{ font-size:64px; line-height:1; filter:drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
+  .step-title{ font-size:20px; font-weight:700; margin:0; }
+  .step-instruction{ font-size:14.5px; color:var(--text-dim); max-width:320px; line-height:1.55; margin:0; }
+
+  .phase-badge{
+    font-family:var(--mono); font-size:12px; letter-spacing:0.04em;
+    padding:6px 14px; border-radius:999px; border:1px solid var(--line);
+    color:var(--text-dim); background:var(--panel-2);
   }
-  select{
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%238b93a3'/></svg>");
-    background-repeat:no-repeat; background-position:right 14px center;
+  .phase-badge.ready{ color:var(--warn); border-color:rgba(232,162,61,0.35); background:rgba(232,162,61,0.08); }
+  .phase-badge.go{ color:var(--accent); border-color:rgba(79,209,165,0.35); background:rgba(79,209,165,0.08); }
+
+  .countdown-ring{
+    width:120px; height:120px; border-radius:50%;
+    border:4px solid var(--panel-2); position:relative;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:34px; font-weight:700;
   }
+  .countdown-ring svg{ position:absolute; top:-4px; left:-4px; transform:rotate(-90deg); }
+  .countdown-ring circle{ fill:none; stroke-width:4; }
+  .countdown-ring .bg{ stroke:var(--panel-2); }
+  .countdown-ring .fg{ stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset .1s linear; }
+
+  /* bottom controls */
+  .controls{ padding:0 16px 22px; display:flex; flex-direction:column; gap:10px; }
+  button{ font-family:inherit; font-size:15px; font-weight:600; border:none; border-radius:11px;
+    padding:14px; cursor:pointer; -webkit-user-select:none; user-select:none; }
+  button:active{ transform:scale(0.98); }
+  .btn-primary{ background:var(--accent); color:#0a1210; }
+  .btn-primary:disabled{ background:#3a4048; color:#6a7280; }
+  .btn-ghost{ background:transparent; color:var(--text-dim); border:1px solid var(--line); font-weight:500; }
+  .btn-danger-ghost{ background:transparent; color:var(--danger); border:1px solid rgba(224,93,93,0.35); font-weight:500; }
   .row{ display:flex; gap:10px; }
   .row > *{ flex:1; }
 
-  button{
-    font-family:inherit; font-size:15px; font-weight:600;
-    border:none; border-radius:11px; padding:14px; cursor:pointer;
-    -webkit-user-select:none; user-select:none;
-  }
-  button:active{ transform:scale(0.98); }
-  .btn-primary{ background:var(--accent); color:#0a1210; width:100%; }
-  .btn-primary:disabled{ background:#3a4048; color:#6a7280; }
-  .btn-record{ background:var(--danger); color:#fff; width:100%; }
-  .btn-record.recording{ background:var(--accent); color:#0a1210; }
-  .btn-ghost{
-    background:transparent; color:var(--text-dim);
-    border:1px solid var(--line); font-weight:500;
-  }
-  .btn-danger-ghost{
-    background:transparent; color:var(--danger);
-    border:1px solid rgba(224,93,93,0.35); font-weight:500;
-  }
+  /* summary */
+  .summary-card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; }
+  .summary-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .summary-row:last-child{ border-bottom:none; }
+  .summary-row .k{ color:var(--text-dim); }
+  .summary-row .v{ font-family:var(--mono); font-size:12.5px; }
+  .summary-row .v.ok{ color:var(--accent); }
+  .summary-row .v.warn{ color:var(--warn); }
 
-  .readout{
-    display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;
-    font-family:var(--mono);
-  }
-  .readout .group{ background:var(--panel-2); border-radius:9px; padding:9px; }
-  .readout .group .label{ font-size:10px; color:var(--text-dim); margin-bottom:4px; }
-  .readout .group .val{ font-size:12px; line-height:1.6; }
-  .readout .group .val span{ color:var(--accent); }
+  .warn-box{ background:rgba(232,162,61,0.1); border:1px solid rgba(232,162,61,0.3); color:var(--warn);
+    border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:14px; line-height:1.5; }
 
-  .timer{
-    font-family:var(--mono); font-size:28px; text-align:center;
-    margin:10px 0 4px; letter-spacing:0.02em;
-  }
-  .timer.recording{ color:var(--danger); }
-
-  .session-list{ font-size:13px; }
-  .session-row{
-    display:flex; justify-content:space-between; align-items:center;
-    padding:9px 0; border-bottom:1px solid var(--line);
-    gap:8px;
-  }
-  .session-row:last-child{ border-bottom:none; }
-  .session-row .meta{ color:var(--text-dim); font-size:11px; }
-  .session-row .name{ font-weight:600; }
-  .session-row button{ padding:6px 10px; font-size:12px; flex:none; }
-  .empty{ color:var(--text-dim); font-size:13px; text-align:center; padding:14px 0; }
-
-  .summary-bar{
-    display:flex; justify-content:space-between; font-size:12px;
-    color:var(--text-dim); margin-bottom:10px;
-  }
-  .summary-bar b{ color:var(--text); }
-
-  .footer-note{ font-size:11px; color:var(--text-dim); line-height:1.5; margin-top:6px; }
-  .warn-box{
-    background:rgba(232,162,61,0.1); border:1px solid rgba(232,162,61,0.3);
-    color:var(--warn); border-radius:10px; padding:10px 12px; font-size:12.5px;
-    margin-bottom:14px; line-height:1.5;
-  }
+  header{ padding:14px 16px 0; }
+  header h2{ font-size:15px; margin:0; font-weight:700; }
+  header p{ margin:2px 0 0; font-size:12px; color:var(--text-dim); }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Szenzorteszt</h1>
-  <p>Mozgásvezérlés kalibrációs adatgyűjtő</p>
-</header>
-
-<div id="httpsWarning" class="warn-box" style="display:none;">
-  Ez az oldal nem HTTPS-en fut. A szenzorok nagy eséllyel nem lesznek elérhetők —
-  GitHub Pages-en (https://…github.io) vagy más HTTPS forráson nyisd meg.
-</div>
-
-<div class="status-bar">
-  <div id="statusDot" class="dot"></div>
-  <span id="statusText">Szenzorok inaktívak</span>
-</div>
-
-<div class="card" id="permCard">
-  <h2>1 · Engedélyezés</h2>
-  <button class="btn-primary" id="permBtn">Szenzor-hozzáférés engedélyezése</button>
-  <p class="footer-note">iOS-en ezt egyszer, felhasználói érintésre kell megnyomni, különben nem érkezik szenzoradat.</p>
-</div>
-
-<div class="card">
-  <h2>2 · Teszt adatai</h2>
-  <label for="tester">Tesztelő neve</label>
-  <input type="text" id="tester" placeholder="pl. Kovács Anna" value="">
-
-  <label for="grip">Fogásmód</label>
-  <select id="grip">
-    <option value="ket_kez">Két kézzel</option>
-    <option value="jobb_kez">Jobb kézzel</option>
-    <option value="bal_kez">Bal kézzel</option>
-  </select>
-
-  <label for="exercise">Gyakorlat</label>
-  <select id="exercise">
-    <option value="alapallas">Alapállás</option>
-    <option value="jaras">Járás (helyben)</option>
-    <option value="futas">Futás (helyben)</option>
-    <option value="lepcsozes">Lépcsőzés (térdemelés)</option>
-    <option value="leguggolas">Leguggolás</option>
-    <option value="felnyulas">Felnyúlás</option>
-    <option value="oldalra_lepes_bal">Oldalra lépés — balra</option>
-    <option value="oldalra_lepes_jobb">Oldalra lépés — jobbra</option>
-    <option value="oldalra_doles_bal">Oldalra dőlés — balra</option>
-    <option value="oldalra_doles_jobb">Oldalra dőlés — jobbra</option>
-    <option value="telefon_kinyujtas">Telefon kinyújtása</option>
-    <option value="atmenet">Átmenet (szabad, nem címkézett)</option>
-  </select>
-
-  <label for="note">Megjegyzés (opcionális)</label>
-  <input type="text" id="note" placeholder="pl. 3. ismétlés, gyorsabb tempó">
-</div>
-
-<div class="card">
-  <h2>3 · Felvétel</h2>
-  <div class="timer" id="timer">00:00.0</div>
-  <button class="btn-record" id="recordBtn" disabled>Felvétel indítása</button>
-  <p class="footer-note" id="recordHint">Előbb engedélyezd a szenzorokat.</p>
-</div>
-
-<div class="card">
-  <h2>Élő kiolvasás</h2>
-  <div class="readout">
-    <div class="group">
-      <div class="label">GYORSULÁS (m/s²)</div>
-      <div class="val">x <span id="ax">–</span><br>y <span id="ay">–</span><br>z <span id="az">–</span></div>
-    </div>
-    <div class="group">
-      <div class="label">GIROSZKÓP (°/s)</div>
-      <div class="val">α <span id="ra">–</span><br>β <span id="rb">–</span><br>γ <span id="rg">–</span></div>
-    </div>
-    <div class="group">
-      <div class="label">ORIENTÁCIÓ (°)</div>
-      <div class="val">α <span id="oa">–</span><br>β <span id="ob">–</span><br>γ <span id="og">–</span></div>
-    </div>
+<!-- ===================== INTRO ===================== -->
+<div class="screen" id="screenIntro">
+  <div class="center-block">
+    <div class="step-icon">🎮</div>
+    <h1>Gyors kalibráció</h1>
+    <p>Kb. 40 másodperc. Végigvezetlek pár alapmozdulaton, hogy a vezérlés
+       a Te tested méretéhez és mozgásához igazodjon. Csak egyszer kell —
+       legközelebb már nem lesz rá szükség, csak egy gyors ellenőrzésre.</p>
+    <p style="font-size:12.5px;">Tartsd magad elé a telefont, szabad hely legyen körülötted.</p>
+  </div>
+  <div class="controls">
+    <button class="btn-primary" id="permBtn">Szenzorok engedélyezése és kezdés</button>
   </div>
 </div>
 
-<div class="card">
-  <h2>Rögzített szakaszok</h2>
-  <div class="summary-bar">
-    <span>Szakaszok: <b id="sessionCount">0</b></span>
-    <span>Minták összesen: <b id="sampleCount">0</b></span>
+<!-- ===================== CALIBRATION FLOW ===================== -->
+<div class="screen hidden" id="screenFlow">
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label"><span id="progressText">1 / 10</span><span id="stepNameText"></span></div>
   </div>
-  <div class="session-list" id="sessionList">
-    <div class="empty">Még nincs rögzített szakasz.</div>
+
+  <div class="step-stage">
+    <div class="step-icon" id="stepIcon">🧍</div>
+    <div>
+      <h2 class="step-title" id="stepTitle">Alapállás</h2>
+      <p class="step-instruction" id="stepInstruction">Állj nyugodtan, tartsd a telefont magad előtt.</p>
+    </div>
+    <div class="phase-badge" id="phaseBadge">Készülj…</div>
+    <div class="countdown-ring" id="countdownRing">
+      <svg width="120" height="120"><circle class="bg" cx="60" cy="60" r="54"></circle>
+        <circle class="fg" id="ringProgress" cx="60" cy="60" r="54" stroke-dasharray="339" stroke-dashoffset="0"></circle></svg>
+      <span id="countdownNum">3</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-ghost" id="skipStepBtn">Ismétlés / kihagyás</button>
   </div>
 </div>
 
-<div class="row">
-  <button class="btn-primary" id="exportBtn">CSV exportálása</button>
-  <button class="btn-danger-ghost" id="clearBtn">Összes törlése</button>
+<!-- ===================== SUMMARY ===================== -->
+<div class="screen hidden" id="screenSummary">
+  <header style="padding:0 0 12px;"><h2>Kalibráció kész ✓</h2><p>A profil elmentve erre az eszközre.</p></header>
+
+  <div id="httpsNote" class="warn-box hidden">A szenzorok egy része nem adott adatot (pl. nem HTTPS-en futott az oldal) — ezek a mezők közelítő/alap értékkel lettek feltöltve.</div>
+
+  <div class="summary-card" id="summaryCard"></div>
+
+  <div class="controls" style="padding:0; margin-top:auto;">
+    <button class="btn-primary" id="startGameBtn">Kész — irány a játék</button>
+    <div class="row">
+      <button class="btn-ghost" id="recalibrateBtn">Újrakalibrálás</button>
+      <button class="btn-ghost" id="exportBtn">Profil exportálása (JSON)</button>
+    </div>
+  </div>
 </div>
-<p class="footer-note" style="text-align:center; margin-top:10px;">
-  Az adatok a böngésző memóriájában és a telefon local storage-ában tárolódnak, amíg nem törlöd őket vagy nem exportálod ki.
-</p>
 
 <script>
 (function(){
-  const STORAGE_KEY = 'sensor_test_sessions_v1';
+  const STORAGE_KEY = 'motion_calibration_profile_v1';
 
-  let sessions = [];        // { id, exercise, grip, tester, note, startedAt, samples: [] }
-  let currentSession = null;
-  let recording = false;
-  let timerInterval = null;
-  let motionActive = false;
+  // ---------- step definitions ----------
+  // durations in ms. "prep" = get-ready countdown, "hold" = capture window
+  const STEPS = [
+    { id:'baseline',  icon:'🧍', title:'Alapállás', instr:'Állj nyugodtan, tartsd a telefont magad előtt, szemmagasságban.', prep:6000, hold:9000, type:'baseline' },
+    { id:'squat',     icon:'⬇️', title:'Leguggolás', instr:'Guggolj le egyszer, majd állj vissza.', prep:4500, hold:6600, type:'peak', axis:'accel' },
+    { id:'reach',     icon:'⬆️', title:'Felnyúlás', instr:'Nyújtózz fel, emeld a telefont a fejed fölé.', prep:4500, hold:6600, type:'peak', axis:'accel' },
+    { id:'walk',      icon:'🚶', title:'Járás helyben', instr:'Járj helyben, normál tempóban.', prep:4500, hold:9600, type:'cadence' },
+    { id:'run',       icon:'🏃', title:'Futás helyben', instr:'Fuss helyben, gyorsabb tempóban.', prep:4500, hold:9600, type:'cadence' },
+    { id:'sideLeft',  icon:'⬅️', title:'Oldalra lépés — balra', instr:'Lépj egyet balra, majd vissza.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'sideRight', icon:'➡️', title:'Oldalra lépés — jobbra', instr:'Lépj egyet jobbra, majd vissza.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'leanLeft',  icon:'↩️', title:'Dőlés — balra', instr:'Dőlj el balra, majd állj vissza egyenesbe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'leanRight', icon:'↪️', title:'Dőlés — jobbra', instr:'Dőlj el jobbra, majd állj vissza egyenesbe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'turnLeft',  icon:'↺', title:'Fordulás — balra', instr:'Fordulj el a saját tengelyed körül balra, majd fordulj vissza szembe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'turnRight', icon:'↻', title:'Fordulás — jobbra', instr:'Fordulj el a saját tengelyed körül jobbra, majd fordulj vissza szembe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'phonePush', icon:'📱', title:'Telefon kinyújtása', instr:'Nyújtsd előre a telefont karnyújtásnyira, majd húzd vissza.', prep:3600, hold:5400, type:'peak', axis:'accel' },
+  ];
 
-  // ---------- persistence ----------
-  function loadSessions(){
+  let currentStepIndex = 0;
+  let buffer = [];              // samples collected during current "hold" window
+  let baselineStats = null;     // computed after step 0
+  let sensorsOk = false;
+  let profile = {};             // final calibration profile
+  let phaseTimer = null;
+
+  // ---------- speech ----------
+  function speak(text){
+    if(!('speechSynthesis' in window)) return;
     try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) sessions = JSON.parse(raw);
-    }catch(e){ sessions = []; }
-  }
-  function saveSessions(){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); }catch(e){}
-  }
-
-  // ---------- https check ----------
-  if(location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1'){
-    document.getElementById('httpsWarning').style.display = 'block';
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'hu-HU';
+      u.rate = 1.0;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
   }
 
-  // ---------- status ----------
-  const statusDot = document.getElementById('statusDot');
-  const statusText = document.getElementById('statusText');
-  function setStatus(live, text){
-    statusDot.classList.toggle('live', live);
-    statusText.textContent = text;
-  }
-
-  // ---------- live readout ----------
-  const els = {
-    ax: document.getElementById('ax'), ay: document.getElementById('ay'), az: document.getElementById('az'),
-    ra: document.getElementById('ra'), rb: document.getElementById('rb'), rg: document.getElementById('rg'),
-    oa: document.getElementById('oa'), ob: document.getElementById('ob'), og: document.getElementById('og'),
-  };
-  function fmt(n){ return (n === null || n === undefined || isNaN(n)) ? '–' : n.toFixed(2); }
-
-  let latest = { ax:null, ay:null, az:null, ra:null, rb:null, rg:null, oa:null, ob:null, og:null };
+  // ---------- sensor plumbing ----------
+  let latest = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
+  let capturing = false;
 
   function handleMotion(e){
-    if(!motionActive){ motionActive = true; setStatus(true, 'Szenzorok aktívak'); }
+    sensorsOk = true;
     const acc = e.acceleration || e.accelerationIncludingGravity || {};
     const rot = e.rotationRate || {};
-    latest.ax = acc.x; latest.ay = acc.y; latest.az = acc.z;
-    latest.ra = rot.alpha; latest.rb = rot.beta; latest.rg = rot.gamma;
-
-    els.ax.textContent = fmt(acc.x); els.ay.textContent = fmt(acc.y); els.az.textContent = fmt(acc.z);
-    els.ra.textContent = fmt(rot.alpha); els.rb.textContent = fmt(rot.beta); els.rg.textContent = fmt(rot.gamma);
-
-    if(recording && currentSession){
-      currentSession.samples.push({
-        t: Date.now(),
-        ax: acc.x ?? null, ay: acc.y ?? null, az: acc.z ?? null,
-        ra: rot.alpha ?? null, rb: rot.beta ?? null, rg: rot.gamma ?? null,
-        oa: latest.oa ?? null, ob: latest.ob ?? null, og: latest.og ?? null
-      });
+    latest.ax = acc.x || 0; latest.ay = acc.y || 0; latest.az = acc.z || 0;
+    latest.ra = rot.alpha || 0; latest.rb = rot.beta || 0; latest.rg = rot.gamma || 0;
+    if(capturing){
+      buffer.push({ t: performance.now(), ax: latest.ax, ay: latest.ay, az: latest.az,
+                     ra: latest.ra, rb: latest.rb, rg: latest.rg });
     }
   }
 
-  function handleOrientation(e){
-    latest.oa = e.alpha; latest.ob = e.beta; latest.og = e.gamma;
-    els.oa.textContent = fmt(e.alpha); els.ob.textContent = fmt(e.beta); els.og.textContent = fmt(e.gamma);
-  }
+  // ---------- permission & start ----------
+  const screenIntro = document.getElementById('screenIntro');
+  const screenFlow = document.getElementById('screenFlow');
+  const screenSummary = document.getElementById('screenSummary');
 
-  // ---------- permission ----------
-  const permBtn = document.getElementById('permBtn');
-  const recordBtn = document.getElementById('recordBtn');
-  const recordHint = document.getElementById('recordHint');
-
-  function enableSensors(){
-    window.addEventListener('devicemotion', handleMotion);
-    window.addEventListener('deviceorientation', handleOrientation);
-    permBtn.textContent = 'Szenzorok engedélyezve ✓';
-    permBtn.disabled = true;
-    recordBtn.disabled = false;
-    recordHint.textContent = 'Válaszd ki a gyakorlatot fent, majd indítsd a felvételt.';
-    setStatus(false, 'Szenzorok engedélyezve, várakozás jelre…');
-  }
-
-  permBtn.addEventListener('click', function(){
-    const needsMotionPerm = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
-    const needsOrientPerm = typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function';
-
-    if(needsMotionPerm || needsOrientPerm){
-      Promise.all([
-        needsMotionPerm ? DeviceMotionEvent.requestPermission() : Promise.resolve('granted'),
-        needsOrientPerm ? DeviceOrientationEvent.requestPermission() : Promise.resolve('granted')
-      ]).then(function(results){
-        if(results.every(r => r === 'granted')){
-          enableSensors();
+  document.getElementById('permBtn').addEventListener('click', function(){
+    const needsPerm = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
+    if(needsPerm){
+      DeviceMotionEvent.requestPermission().then(function(result){
+        if(result === 'granted'){
+          window.addEventListener('devicemotion', handleMotion);
+          beginFlow();
         }else{
-          setStatus(false, 'Hozzáférés megtagadva');
-          recordHint.textContent = 'A böngésző beállításai közt engedélyezd a mozgásérzékelőket, majd tölts újra.';
+          alert('Szenzor-hozzáférés nélkül a kalibráció nem tud lefutni. Engedélyezd a böngésző beállításaiban.');
         }
-      }).catch(function(err){
-        setStatus(false, 'Hiba az engedélykérésnél');
-        recordHint.textContent = 'Hiba: ' + err.message;
+      }).catch(function(){
+        alert('Hiba történt az engedélykérésnél.');
       });
     }else{
-      // Android / non-iOS-permission browsers: no explicit prompt needed
-      enableSensors();
+      window.addEventListener('devicemotion', handleMotion);
+      beginFlow();
     }
   });
 
-  // ---------- recording ----------
-  const timerEl = document.getElementById('timer');
-  let recordStart = null;
-
-  function fmtTimer(ms){
-    const totalSec = ms / 1000;
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return String(m).padStart(2,'0') + ':' + s.toFixed(1).padStart(4,'0');
+  function beginFlow(){
+    screenIntro.classList.add('hidden');
+    screenFlow.classList.remove('hidden');
+    currentStepIndex = 0;
+    runStep(currentStepIndex);
   }
 
-  recordBtn.addEventListener('click', function(){
-    if(!recording){
-      // start
-      const exercise = document.getElementById('exercise').value;
-      const exerciseLabel = document.getElementById('exercise').selectedOptions[0].textContent;
-      const grip = document.getElementById('grip').value;
-      const tester = document.getElementById('tester').value.trim() || 'ismeretlen';
-      const note = document.getElementById('note').value.trim();
+  // ---------- step runner ----------
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progressText');
+  const stepNameText = document.getElementById('stepNameText');
+  const stepIcon = document.getElementById('stepIcon');
+  const stepTitle = document.getElementById('stepTitle');
+  const stepInstruction = document.getElementById('stepInstruction');
+  const phaseBadge = document.getElementById('phaseBadge');
+  const countdownNum = document.getElementById('countdownNum');
+  const ringProgress = document.getElementById('ringProgress');
+  const RING_CIRC = 339;
 
-      currentSession = {
-        id: 's_' + Date.now(),
-        exercise, exerciseLabel, grip, tester, note,
-        startedAt: Date.now(),
-        samples: []
-      };
-      recording = true;
-      recordStart = Date.now();
-      recordBtn.textContent = 'Felvétel leállítása';
-      recordBtn.classList.add('recording');
-      timerEl.classList.add('recording');
-      setStatus(true, 'Felvétel: ' + exerciseLabel);
+  document.getElementById('skipStepBtn').addEventListener('click', function(){
+    clearTimeout(phaseTimer);
+    runStep(currentStepIndex); // redo current step
+  });
 
-      timerInterval = setInterval(function(){
-        timerEl.textContent = fmtTimer(Date.now() - recordStart);
-      }, 100);
-    }else{
-      // stop
-      recording = false;
-      clearInterval(timerInterval);
-      recordBtn.textContent = 'Felvétel indítása';
-      recordBtn.classList.remove('recording');
-      timerEl.classList.remove('recording');
-      timerEl.textContent = '00:00.0';
+  function setRing(fraction){ // fraction 0..1 remaining
+    ringProgress.setAttribute('stroke-dashoffset', String(RING_CIRC * (1 - fraction)));
+  }
 
-      if(currentSession && currentSession.samples.length > 0){
-        sessions.push(currentSession);
-        saveSessions();
-        renderSessions();
+  function runStep(index){
+    const step = STEPS[index];
+    buffer = [];
+    progressFill.style.width = (index / STEPS.length * 100) + '%';
+    progressText.textContent = (index + 1) + ' / ' + STEPS.length;
+    stepNameText.textContent = step.title;
+    stepIcon.textContent = step.icon;
+    stepTitle.textContent = step.title;
+    stepInstruction.textContent = step.instr;
+    speak(step.title + '. ' + step.instr);
+
+    // --- prep phase ---
+    phaseBadge.textContent = 'Készülj…';
+    phaseBadge.className = 'phase-badge ready';
+    let prepRemaining = step.prep;
+    const prepStart = performance.now();
+    countdownNum.textContent = Math.ceil(prepRemaining / 1000);
+    setRing(1);
+
+    function prepTick(){
+      const elapsed = performance.now() - prepStart;
+      const remaining = Math.max(0, step.prep - elapsed);
+      countdownNum.textContent = Math.ceil(remaining / 1000) || '';
+      setRing(remaining / step.prep);
+      if(remaining > 0){
+        phaseTimer = requestAnimationFrame(prepTick);
+      }else{
+        startCapture(step, index);
       }
-      currentSession = null;
-      setStatus(motionActive, 'Szenzorok engedélyezve, várakozás jelre…');
     }
+    phaseTimer = requestAnimationFrame(prepTick);
+  }
+
+  function startCapture(step, index){
+    phaseBadge.textContent = 'Most!';
+    phaseBadge.className = 'phase-badge go';
+    speak('Most!');
+    capturing = true;
+    buffer = [];
+    const holdStart = performance.now();
+    countdownNum.textContent = '';
+
+    function captureTick(){
+      const elapsed = performance.now() - holdStart;
+      const remaining = Math.max(0, step.hold - elapsed);
+      setRing(remaining / step.hold);
+      if(remaining > 0){
+        phaseTimer = requestAnimationFrame(captureTick);
+      }else{
+        capturing = false;
+        finishStep(step, index);
+      }
+    }
+    phaseTimer = requestAnimationFrame(captureTick);
+  }
+
+  function finishStep(step, index){
+    const metrics = computeMetrics(step, buffer);
+    profile[step.id] = metrics;
+
+    const next = index + 1;
+    if(next < STEPS.length){
+      currentStepIndex = next;
+      runStep(next);
+    }else{
+      progressFill.style.width = '100%';
+      finishCalibration();
+    }
+  }
+
+  // ---------- metric computation ----------
+  function mean(arr){ return arr.reduce((a,b)=>a+b,0) / (arr.length || 1); }
+  function std(arr, m){ return Math.sqrt(mean(arr.map(v => (v - m) * (v - m)))); }
+
+  function computeMetrics(step, samples){
+    if(samples.length === 0){
+      return { warning:'no_sensor_data' };
+    }
+    if(step.type === 'baseline'){
+      const axArr = samples.map(s=>s.ax), ayArr = samples.map(s=>s.ay), azArr = samples.map(s=>s.az);
+      const raArr = samples.map(s=>s.ra), rbArr = samples.map(s=>s.rb), rgArr = samples.map(s=>s.rg);
+      const stats = {
+        ax: mean(axArr), ay: mean(ayArr), az: mean(azArr),
+        ra: mean(raArr), rb: mean(rbArr), rg: mean(rgArr),
+        noiseAccel: std(axArr, mean(axArr)) + std(ayArr, mean(ayArr)) + std(azArr, mean(azArr)),
+        noiseGyro: std(raArr, mean(raArr)) + std(rbArr, mean(rbArr)) + std(rgArr, mean(rgArr)),
+        sampleRateHz: samples.length / (step.hold / 1000)
+      };
+      baselineStats = stats;
+      return stats;
+    }
+
+    if(step.type === 'peak'){
+      const base = baselineStats || { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
+      let peakAccelMag = 0, peakGyroMag = 0;
+      // track the single largest signed deviation per axis, across all 6 axes,
+      // so we can report which axis actually carries direction info for this
+      // exercise instead of assuming accel-X (which the gimbal problem makes unreliable)
+      const axisPeaks = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
+      samples.forEach(function(s){
+        const d = { ax: s.ax-base.ax, ay: s.ay-base.ay, az: s.az-base.az,
+                    ra: s.ra-base.ra, rb: s.rb-base.rb, rg: s.rg-base.rg };
+        const accelMag = Math.sqrt(d.ax*d.ax + d.ay*d.ay + d.az*d.az);
+        if(accelMag > peakAccelMag){ peakAccelMag = accelMag; }
+        const gyroMag = Math.sqrt(d.ra*d.ra + d.rb*d.rb + d.rg*d.rg);
+        if(gyroMag > peakGyroMag){ peakGyroMag = gyroMag; }
+        Object.keys(axisPeaks).forEach(function(k){
+          if(Math.abs(d[k]) > Math.abs(axisPeaks[k])){ axisPeaks[k] = d[k]; }
+        });
+      });
+      let dominantAxis = 'ax', dominantValue = 0;
+      Object.keys(axisPeaks).forEach(function(k){
+        if(Math.abs(axisPeaks[k]) > Math.abs(dominantValue)){ dominantAxis = k; dominantValue = axisPeaks[k]; }
+      });
+      return {
+        peakAccelMag: round2(peakAccelMag),
+        peakGyroMag: round2(peakGyroMag),
+        signedAccelX: round2(axisPeaks.ax), // kept for backward compatibility with earlier exports
+        dominantAxis: dominantAxis,
+        dominantSignedValue: round2(dominantValue)
+      };
+    }
+
+    if(step.type === 'cadence'){
+      const base = baselineStats || { ax:0, ay:0, az:0 };
+      const points = samples.map(function(s){
+        const dax = s.ax - base.ax, day = s.ay - base.ay, daz = s.az - base.az;
+        return { t: s.t, mag: Math.sqrt(dax*dax + day*day + daz*daz) };
+      });
+      const peakAccelMag = Math.max.apply(null, points.map(p=>p.mag).concat([0]));
+      // local-maxima peak counting above 40% of the observed peak, with a debounce
+      // window so a single footstep's vibration can't be counted as multiple steps
+      // (real human step cadence tops out well under 4 Hz, i.e. >250ms apart)
+      const threshold = peakAccelMag * 0.4;
+      const debounceMs = 250;
+      let count = 0, rising = false, lastPeakT = -Infinity;
+      for(let i=1;i<points.length;i++){
+        const cur = points[i], prev = points[i-1];
+        if(cur.mag > threshold && cur.mag > prev.mag){ rising = true; }
+        else if(rising && cur.mag < prev.mag){
+          if(prev.t - lastPeakT > debounceMs){ count++; lastPeakT = prev.t; }
+          rising = false;
+        }
+      }
+      const durationSec = (samples[samples.length-1].t - samples[0].t) / 1000 || (step.hold/1000);
+      const cadenceHz = count / durationSec;
+      return { peakAccelMag: round2(peakAccelMag), stepCount: count, cadenceHz: round2(cadenceHz) };
+    }
+
+    return {};
+  }
+
+  function round2(n){ return Math.round(n * 100) / 100; }
+
+  // ---------- summary / storage ----------
+  function finishCalibration(){
+    screenFlow.classList.add('hidden');
+    screenSummary.classList.remove('hidden');
+
+    if(!sensorsOk){
+      document.getElementById('httpsNote').classList.remove('hidden');
+    }
+
+    profile.calibratedAt = new Date().toISOString();
+    profile.deviceHint = navigator.userAgent.slice(0, 80);
+
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(profile)); }catch(e){}
+
+    renderSummary(profile);
+  }
+
+  function renderSummary(p){
+    const card = document.getElementById('summaryCard');
+    const rows = [
+      ['Alapzaj (gyorsulás)', p.baseline ? p.baseline.noiseAccel.toFixed(2) : '–', p.baseline && p.baseline.noiseAccel < 1 ? 'ok' : 'warn'],
+      ['Guggolás — csúcskitérés', p.squat ? p.squat.peakAccelMag : '–', 'ok'],
+      ['Felnyúlás — csúcskitérés', p.reach ? p.reach.peakAccelMag : '–', 'ok'],
+      ['Járás — kadencia (Hz)', p.walk ? p.walk.cadenceHz : '–', 'ok'],
+      ['Futás — kadencia (Hz)', p.run ? p.run.cadenceHz : '–', 'ok'],
+      ['Oldallépés bal — kitérés', p.sideLeft ? p.sideLeft.peakGyroMag : '–', 'ok'],
+      ['Oldallépés jobb — kitérés', p.sideRight ? p.sideRight.peakGyroMag : '–', 'ok'],
+      ['Dőlés bal — kitérés', p.leanLeft ? p.leanLeft.peakGyroMag : '–', 'ok'],
+      ['Dőlés jobb — kitérés', p.leanRight ? p.leanRight.peakGyroMag : '–', 'ok'],
+      ['Fordulás bal — kitérés', p.turnLeft ? p.turnLeft.peakGyroMag : '–', 'ok'],
+      ['Fordulás jobb — kitérés', p.turnRight ? p.turnRight.peakGyroMag : '–', 'ok'],
+      ['Telefon kinyújtása — kitérés', p.phonePush ? p.phonePush.peakAccelMag : '–', 'ok'],
+    ];
+    card.innerHTML = rows.map(function(r){
+      return '<div class="summary-row"><span class="k">' + r[0] + '</span><span class="v ' + r[2] + '">' + r[1] + '</span></div>';
+    }).join('');
+  }
+
+  document.getElementById('recalibrateBtn').addEventListener('click', function(){
+    profile = {};
+    baselineStats = null;
+    sensorsOk = false;
+    document.getElementById('httpsNote').classList.add('hidden');
+    screenSummary.classList.add('hidden');
+    screenFlow.classList.remove('hidden');
+    currentStepIndex = 0;
+    runStep(0);
   });
 
-  // ---------- session list ----------
-  const sessionList = document.getElementById('sessionList');
-  const sessionCount = document.getElementById('sessionCount');
-  const sampleCount = document.getElementById('sampleCount');
-
-  function renderSessions(){
-    sessionList.innerHTML = '';
-    if(sessions.length === 0){
-      sessionList.innerHTML = '<div class="empty">Még nincs rögzített szakasz.</div>';
-    }else{
-      sessions.forEach(function(s, idx){
-        const row = document.createElement('div');
-        row.className = 'session-row';
-        const durSec = s.samples.length > 0
-          ? ((s.samples[s.samples.length-1].t - s.samples[0].t) / 1000).toFixed(1)
-          : '0.0';
-        row.innerHTML =
-          '<div>' +
-            '<div class="name">' + s.exerciseLabel + '</div>' +
-            '<div class="meta">' + s.tester + ' · ' + s.grip + ' · ' + s.samples.length + ' minta · ' + durSec + ' s' +
-            (s.note ? ' · ' + escapeHtml(s.note) : '') +
-          '</div></div>';
-        const delBtn = document.createElement('button');
-        delBtn.className = 'btn-ghost';
-        delBtn.textContent = 'Törlés';
-        delBtn.addEventListener('click', function(){
-          sessions.splice(idx, 1);
-          saveSessions();
-          renderSessions();
-        });
-        row.appendChild(delBtn);
-        sessionList.appendChild(row);
-      });
-    }
-    sessionCount.textContent = sessions.length;
-    sampleCount.textContent = sessions.reduce((sum,s) => sum + s.samples.length, 0);
-  }
-
-  function escapeHtml(str){
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  // ---------- export ----------
   document.getElementById('exportBtn').addEventListener('click', function(){
-    if(sessions.length === 0){
-      alert('Nincs exportálható adat.');
-      return;
-    }
-    const header = ['session_id','tester','grip','exercise','exercise_label','note',
-                     'timestamp_ms','elapsed_ms',
-                     'accel_x','accel_y','accel_z',
-                     'gyro_alpha','gyro_beta','gyro_gamma',
-                     'orient_alpha','orient_beta','orient_gamma'];
-    const lines = [header.join(',')];
-
-    sessions.forEach(function(s){
-      const t0 = s.samples.length > 0 ? s.samples[0].t : s.startedAt;
-      s.samples.forEach(function(sample){
-        const row = [
-          s.id, csvSafe(s.tester), s.grip, s.exercise, csvSafe(s.exerciseLabel), csvSafe(s.note),
-          sample.t, sample.t - t0,
-          numOrEmpty(sample.ax), numOrEmpty(sample.ay), numOrEmpty(sample.az),
-          numOrEmpty(sample.ra), numOrEmpty(sample.rb), numOrEmpty(sample.rg),
-          numOrEmpty(sample.oa), numOrEmpty(sample.ob), numOrEmpty(sample.og)
-        ];
-        lines.push(row.join(','));
-      });
-    });
-
-    const csv = lines.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const stamp = new Date().toISOString().replace(/[:.]/g,'-');
-    a.href = url;
-    a.download = 'szenzorteszt_' + stamp + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.download = 'kalibracios_profil.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
   });
 
-  function csvSafe(str){
-    if(str === undefined || str === null) return '';
-    const s = String(str);
-    if(s.includes(',') || s.includes('"') || s.includes('\n')){
-      return '"' + s.replace(/"/g,'""') + '"';
-    }
-    return s;
-  }
-  function numOrEmpty(n){
-    return (n === null || n === undefined || isNaN(n)) ? '' : n;
-  }
-
-  // ---------- clear ----------
-  document.getElementById('clearBtn').addEventListener('click', function(){
-    if(sessions.length === 0) return;
-    if(confirm('Biztosan törlöd az összes rögzített szakaszt? Ez nem visszavonható.')){
-      sessions = [];
-      saveSessions();
-      renderSessions();
-    }
+  document.getElementById('startGameBtn').addEventListener('click', function(){
+    alert('Itt indulna a játék — a mentett profil localStorage-ban elérhető a kulcs alatt:\n' + STORAGE_KEY);
   });
 
-  // ---------- init ----------
-  loadSessions();
-  renderSessions();
-
-  // Non-iOS browsers (most Android) don't require explicit permission,
-  // but we still wait for the button tap to keep the flow consistent
-  // and to make sure the first sensor event fires after a user gesture.
+  // ---------- resume existing profile on load (skip flow if already calibrated) ----------
+  // Commented out intentionally for this prototype so you can always re-test the full flow.
+  // In the real game you'd check localStorage here and jump straight to a short "quick check"
+  // instead of the full 10-step flow if a profile already exists.
 })();
 </script>
 
