@@ -160,16 +160,18 @@
   // ---------- step definitions ----------
   // durations in ms. "prep" = get-ready countdown, "hold" = capture window
   const STEPS = [
-    { id:'baseline',  icon:'🧍', title:'Alapállás', instr:'Állj nyugodtan, tartsd a telefont magad előtt, szemmagasságban.', prep:2000, hold:3000, type:'baseline' },
-    { id:'squat',     icon:'⬇️', title:'Leguggolás', instr:'Guggolj le egyszer, majd állj vissza.', prep:1500, hold:2200, type:'peak', axis:'accel' },
-    { id:'reach',     icon:'⬆️', title:'Felnyúlás', instr:'Nyújtózz fel, emeld a telefont a fejed fölé.', prep:1500, hold:2200, type:'peak', axis:'accel' },
-    { id:'walk',      icon:'🚶', title:'Járás helyben', instr:'Járj helyben, normál tempóban, kb. 4-5 lépést.', prep:1500, hold:3200, type:'cadence' },
-    { id:'run',       icon:'🏃', title:'Futás helyben', instr:'Fuss helyben, gyorsabb tempóban, kb. 5-6 lépést.', prep:1500, hold:3200, type:'cadence' },
-    { id:'sideLeft',  icon:'⬅️', title:'Oldalra lépés — balra', instr:'Lépj egyet balra, majd vissza.', prep:1200, hold:1800, type:'peak', axis:'gyro' },
-    { id:'sideRight', icon:'➡️', title:'Oldalra lépés — jobbra', instr:'Lépj egyet jobbra, majd vissza.', prep:1200, hold:1800, type:'peak', axis:'gyro' },
-    { id:'leanLeft',  icon:'↩️', title:'Dőlés — balra', instr:'Dőlj el balra, majd állj vissza egyenesbe.', prep:1200, hold:1800, type:'peak', axis:'gyro' },
-    { id:'leanRight', icon:'↪️', title:'Dőlés — jobbra', instr:'Dőlj el jobbra, majd állj vissza egyenesbe.', prep:1200, hold:1800, type:'peak', axis:'gyro' },
-    { id:'phonePush', icon:'📱', title:'Telefon kinyújtása', instr:'Nyújtsd előre a telefont karnyújtásnyira, majd húzd vissza.', prep:1200, hold:1800, type:'peak', axis:'accel' },
+    { id:'baseline',  icon:'🧍', title:'Alapállás', instr:'Állj nyugodtan, tartsd a telefont magad előtt, szemmagasságban.', prep:6000, hold:9000, type:'baseline' },
+    { id:'squat',     icon:'⬇️', title:'Leguggolás', instr:'Guggolj le egyszer, majd állj vissza.', prep:4500, hold:6600, type:'peak', axis:'accel' },
+    { id:'reach',     icon:'⬆️', title:'Felnyúlás', instr:'Nyújtózz fel, emeld a telefont a fejed fölé.', prep:4500, hold:6600, type:'peak', axis:'accel' },
+    { id:'walk',      icon:'🚶', title:'Járás helyben', instr:'Járj helyben, normál tempóban.', prep:4500, hold:9600, type:'cadence' },
+    { id:'run',       icon:'🏃', title:'Futás helyben', instr:'Fuss helyben, gyorsabb tempóban.', prep:4500, hold:9600, type:'cadence' },
+    { id:'sideLeft',  icon:'⬅️', title:'Oldalra lépés — balra', instr:'Lépj egyet balra, majd vissza.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'sideRight', icon:'➡️', title:'Oldalra lépés — jobbra', instr:'Lépj egyet jobbra, majd vissza.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'leanLeft',  icon:'↩️', title:'Dőlés — balra', instr:'Dőlj el balra, majd állj vissza egyenesbe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'leanRight', icon:'↪️', title:'Dőlés — jobbra', instr:'Dőlj el jobbra, majd állj vissza egyenesbe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'turnLeft',  icon:'↺', title:'Fordulás — balra', instr:'Fordulj el a saját tengelyed körül balra, majd fordulj vissza szembe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'turnRight', icon:'↻', title:'Fordulás — jobbra', instr:'Fordulj el a saját tengelyed körül jobbra, majd fordulj vissza szembe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
+    { id:'phonePush', icon:'📱', title:'Telefon kinyújtása', instr:'Nyújtsd előre a telefont karnyújtásnyira, majd húzd vissza.', prep:3600, hold:5400, type:'peak', axis:'accel' },
   ];
 
   let currentStepIndex = 0;
@@ -178,6 +180,18 @@
   let sensorsOk = false;
   let profile = {};             // final calibration profile
   let phaseTimer = null;
+
+  // ---------- speech ----------
+  function speak(text){
+    if(!('speechSynthesis' in window)) return;
+    try{
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'hu-HU';
+      u.rate = 1.0;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
 
   // ---------- sensor plumbing ----------
   let latest = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
@@ -256,6 +270,7 @@
     stepIcon.textContent = step.icon;
     stepTitle.textContent = step.title;
     stepInstruction.textContent = step.instr;
+    speak(step.title + '. ' + step.instr);
 
     // --- prep phase ---
     phaseBadge.textContent = 'Készülj…';
@@ -282,6 +297,7 @@
   function startCapture(step, index){
     phaseBadge.textContent = 'Most!';
     phaseBadge.className = 'phase-badge go';
+    speak('Most!');
     capturing = true;
     buffer = [];
     const holdStart = performance.now();
@@ -339,32 +355,55 @@
 
     if(step.type === 'peak'){
       const base = baselineStats || { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
-      let peakAccelMag = 0, peakGyroMag = 0, signedX = 0;
+      let peakAccelMag = 0, peakGyroMag = 0;
+      // track the single largest signed deviation per axis, across all 6 axes,
+      // so we can report which axis actually carries direction info for this
+      // exercise instead of assuming accel-X (which the gimbal problem makes unreliable)
+      const axisPeaks = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
       samples.forEach(function(s){
-        const dax = s.ax - base.ax, day = s.ay - base.ay, daz = s.az - base.az;
-        const accelMag = Math.sqrt(dax*dax + day*day + daz*daz);
+        const d = { ax: s.ax-base.ax, ay: s.ay-base.ay, az: s.az-base.az,
+                    ra: s.ra-base.ra, rb: s.rb-base.rb, rg: s.rg-base.rg };
+        const accelMag = Math.sqrt(d.ax*d.ax + d.ay*d.ay + d.az*d.az);
         if(accelMag > peakAccelMag){ peakAccelMag = accelMag; }
-        const dra = s.ra - base.ra, drb = s.rb - base.rb, drg = s.rg - base.rg;
-        const gyroMag = Math.sqrt(dra*dra + drb*drb + drg*drg);
+        const gyroMag = Math.sqrt(d.ra*d.ra + d.rb*d.rb + d.rg*d.rg);
         if(gyroMag > peakGyroMag){ peakGyroMag = gyroMag; }
-        if(Math.abs(dax) > Math.abs(signedX)){ signedX = dax; }
+        Object.keys(axisPeaks).forEach(function(k){
+          if(Math.abs(d[k]) > Math.abs(axisPeaks[k])){ axisPeaks[k] = d[k]; }
+        });
       });
-      return { peakAccelMag: round2(peakAccelMag), peakGyroMag: round2(peakGyroMag), signedAccelX: round2(signedX) };
+      let dominantAxis = 'ax', dominantValue = 0;
+      Object.keys(axisPeaks).forEach(function(k){
+        if(Math.abs(axisPeaks[k]) > Math.abs(dominantValue)){ dominantAxis = k; dominantValue = axisPeaks[k]; }
+      });
+      return {
+        peakAccelMag: round2(peakAccelMag),
+        peakGyroMag: round2(peakGyroMag),
+        signedAccelX: round2(axisPeaks.ax), // kept for backward compatibility with earlier exports
+        dominantAxis: dominantAxis,
+        dominantSignedValue: round2(dominantValue)
+      };
     }
 
     if(step.type === 'cadence'){
       const base = baselineStats || { ax:0, ay:0, az:0 };
-      const mags = samples.map(function(s){
+      const points = samples.map(function(s){
         const dax = s.ax - base.ax, day = s.ay - base.ay, daz = s.az - base.az;
-        return Math.sqrt(dax*dax + day*day + daz*daz);
+        return { t: s.t, mag: Math.sqrt(dax*dax + day*day + daz*daz) };
       });
-      const peakAccelMag = Math.max.apply(null, mags.concat([0]));
-      // simple peak counting for cadence estimate: count local maxima above 40% of peak
+      const peakAccelMag = Math.max.apply(null, points.map(p=>p.mag).concat([0]));
+      // local-maxima peak counting above 40% of the observed peak, with a debounce
+      // window so a single footstep's vibration can't be counted as multiple steps
+      // (real human step cadence tops out well under 4 Hz, i.e. >250ms apart)
       const threshold = peakAccelMag * 0.4;
-      let count = 0, rising = false;
-      for(let i=1;i<mags.length;i++){
-        if(mags[i] > threshold && mags[i] > mags[i-1]){ rising = true; }
-        else if(rising && mags[i] < mags[i-1]){ count++; rising = false; }
+      const debounceMs = 250;
+      let count = 0, rising = false, lastPeakT = -Infinity;
+      for(let i=1;i<points.length;i++){
+        const cur = points[i], prev = points[i-1];
+        if(cur.mag > threshold && cur.mag > prev.mag){ rising = true; }
+        else if(rising && cur.mag < prev.mag){
+          if(prev.t - lastPeakT > debounceMs){ count++; lastPeakT = prev.t; }
+          rising = false;
+        }
       }
       const durationSec = (samples[samples.length-1].t - samples[0].t) / 1000 || (step.hold/1000);
       const cadenceHz = count / durationSec;
@@ -405,6 +444,8 @@
       ['Oldallépés jobb — kitérés', p.sideRight ? p.sideRight.peakGyroMag : '–', 'ok'],
       ['Dőlés bal — kitérés', p.leanLeft ? p.leanLeft.peakGyroMag : '–', 'ok'],
       ['Dőlés jobb — kitérés', p.leanRight ? p.leanRight.peakGyroMag : '–', 'ok'],
+      ['Fordulás bal — kitérés', p.turnLeft ? p.turnLeft.peakGyroMag : '–', 'ok'],
+      ['Fordulás jobb — kitérés', p.turnRight ? p.turnRight.peakGyroMag : '–', 'ok'],
       ['Telefon kinyújtása — kitérés', p.phonePush ? p.phonePush.peakAccelMag : '–', 'ok'],
     ];
     card.innerHTML = rows.map(function(r){
