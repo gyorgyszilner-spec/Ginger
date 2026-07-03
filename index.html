@@ -3,484 +3,360 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Kalibráció — mozgásvezérlés</title>
+<title>Digitális kimenet teszt</title>
 <style>
   :root{
-    --bg: #12151a;
-    --panel: #1b1f27;
-    --panel-2: #232834;
-    --line: #2c313d;
-    --text: #e8eaed;
-    --text-dim: #8b93a3;
-    --accent: #4fd1a5;
-    --accent-dim: #2c7a5f;
-    --warn: #e8a23d;
-    --danger: #e05d5d;
+    --bg: #12151a; --panel: #1b1f27; --panel-2: #232834; --line: #2c313d;
+    --text: #e8eaed; --text-dim: #8b93a3;
+    --accent: #4fd1a5; --accent-dim: #2c7a5f;
+    --warn: #e8a23d; --danger: #e05d5d;
     --mono: 'SF Mono', 'Roboto Mono', Consolas, monospace;
   }
   *{box-sizing:border-box;}
+  .hidden{ display:none !important; }
   html,body{ margin:0; padding:0; background:var(--bg); color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-    -webkit-tap-highlight-color:transparent; overflow-x:hidden; }
-  body{ max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; }
+    -webkit-tap-highlight-color:transparent; }
+  body{ max-width:480px; margin:0 auto; padding:14px 14px 40px; }
 
-  /* ---------- top progress ---------- */
-  .progress-wrap{ padding:14px 16px 0; }
-  .progress-track{ height:6px; background:var(--panel-2); border-radius:4px; overflow:hidden; }
-  .progress-fill{ height:100%; background:var(--accent); border-radius:4px; transition:width .35s ease; width:0%; }
-  .progress-label{ display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-top:6px; }
-
-  /* ---------- screens ---------- */
-  .screen{ flex:1; display:flex; flex-direction:column; padding:20px 16px 30px; }
-  .hidden{ display:none !important; }
-
-  /* intro / outro */
-  .center-block{ flex:1; display:flex; flex-direction:column; justify-content:center; text-align:center; gap:14px; }
-  .center-block h1{ font-size:22px; margin:0; letter-spacing:-0.01em; }
-  .center-block p{ color:var(--text-dim); font-size:14.5px; line-height:1.6; margin:0; }
-
-  /* step card */
-  .step-stage{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; text-align:center; }
-  .step-icon{ font-size:64px; line-height:1; filter:drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
-  .step-title{ font-size:20px; font-weight:700; margin:0; }
-  .step-instruction{ font-size:14.5px; color:var(--text-dim); max-width:320px; line-height:1.55; margin:0; }
-
-  .phase-badge{
-    font-family:var(--mono); font-size:12px; letter-spacing:0.04em;
-    padding:6px 14px; border-radius:999px; border:1px solid var(--line);
-    color:var(--text-dim); background:var(--panel-2);
-  }
-  .phase-badge.ready{ color:var(--warn); border-color:rgba(232,162,61,0.35); background:rgba(232,162,61,0.08); }
-  .phase-badge.go{ color:var(--accent); border-color:rgba(79,209,165,0.35); background:rgba(79,209,165,0.08); }
-
-  .countdown-ring{
-    width:120px; height:120px; border-radius:50%;
-    border:4px solid var(--panel-2); position:relative;
-    display:flex; align-items:center; justify-content:center;
-    font-family:var(--mono); font-size:34px; font-weight:700;
-  }
-  .countdown-ring svg{ position:absolute; top:-4px; left:-4px; transform:rotate(-90deg); }
-  .countdown-ring circle{ fill:none; stroke-width:4; }
-  .countdown-ring .bg{ stroke:var(--panel-2); }
-  .countdown-ring .fg{ stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset .1s linear; }
-
-  /* bottom controls */
-  .controls{ padding:0 16px 22px; display:flex; flex-direction:column; gap:10px; }
-  button{ font-family:inherit; font-size:15px; font-weight:600; border:none; border-radius:11px;
-    padding:14px; cursor:pointer; -webkit-user-select:none; user-select:none; }
-  button:active{ transform:scale(0.98); }
-  .btn-primary{ background:var(--accent); color:#0a1210; }
-  .btn-primary:disabled{ background:#3a4048; color:#6a7280; }
-  .btn-ghost{ background:transparent; color:var(--text-dim); border:1px solid var(--line); font-weight:500; }
-  .btn-danger-ghost{ background:transparent; color:var(--danger); border:1px solid rgba(224,93,93,0.35); font-weight:500; }
-  .row{ display:flex; gap:10px; }
-  .row > *{ flex:1; }
-
-  /* summary */
-  .summary-card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; }
-  .summary-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
-  .summary-row:last-child{ border-bottom:none; }
-  .summary-row .k{ color:var(--text-dim); }
-  .summary-row .v{ font-family:var(--mono); font-size:12.5px; }
-  .summary-row .v.ok{ color:var(--accent); }
-  .summary-row .v.warn{ color:var(--warn); }
+  header{ margin-bottom:14px; }
+  header h1{ font-size:19px; font-weight:700; margin:0 0 2px; }
+  header p{ margin:0; font-size:12.5px; color:var(--text-dim); }
 
   .warn-box{ background:rgba(232,162,61,0.1); border:1px solid rgba(232,162,61,0.3); color:var(--warn);
     border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:14px; line-height:1.5; }
+  .ok-box{ background:rgba(79,209,165,0.08); border:1px solid rgba(79,209,165,0.3); color:var(--accent);
+    border-radius:10px; padding:10px 12px; font-size:12.5px; margin-bottom:14px; line-height:1.5; }
 
-  header{ padding:14px 16px 0; }
-  header h2{ font-size:15px; margin:0; font-weight:700; }
-  header p{ margin:2px 0 0; font-size:12px; color:var(--text-dim); }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  .card h2{ font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dim); margin:0 0 12px; font-weight:600; }
+
+  button{ font-family:inherit; font-size:15px; font-weight:600; border:none; border-radius:11px;
+    padding:14px; cursor:pointer; -webkit-user-select:none; user-select:none; width:100%; }
+  button:active{ transform:scale(0.98); }
+  .btn-primary{ background:var(--accent); color:#0a1210; }
+  .btn-ghost{ background:transparent; color:var(--text-dim); border:1px solid var(--line); font-weight:500; }
+  .row{ display:flex; gap:10px; }
+  .row > *{ flex:1; }
+
+  /* sensitivity slider */
+  .slider-row{ display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .slider-row input[type=range]{ flex:1; accent-color: var(--accent); }
+  .slider-val{ font-family:var(--mono); font-size:13px; width:44px; text-align:right; color:var(--text-dim); }
+
+  /* gesture buttons grid */
+  .gesture-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .gesture-btn{
+    background:var(--panel-2); border:2px solid var(--line); border-radius:12px;
+    padding:12px 10px; text-align:center; transition:background .08s, border-color .08s, transform .08s;
+  }
+  .gesture-btn .icon{ font-size:22px; display:block; margin-bottom:4px; }
+  .gesture-btn .label{ font-size:11.5px; color:var(--text-dim); line-height:1.3; }
+  .gesture-btn.pressed{
+    background:rgba(79,209,165,0.15); border-color:var(--accent); transform:scale(0.97);
+  }
+  .gesture-btn.pressed .label{ color:var(--text); font-weight:600; }
+
+  /* physical buttons */
+  .phys-btn{
+    background:var(--panel-2); border:2px solid var(--line); border-radius:14px;
+    padding:22px 10px; text-align:center; font-size:15px; font-weight:700;
+    transition:background .08s, border-color .08s;
+  }
+  .phys-btn.pressed{ background:rgba(79,209,165,0.2); border-color:var(--accent); color:var(--accent); }
+
+  /* event log */
+  .log{ font-family:var(--mono); font-size:11.5px; max-height:220px; overflow-y:auto; }
+  .log-row{ display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--line); }
+  .log-row:last-child{ border-bottom:none; }
+  .log-row .down{ color:var(--accent); }
+  .log-row .up{ color:var(--text-dim); }
+  .empty{ color:var(--text-dim); font-size:13px; text-align:center; padding:14px 0; }
 </style>
 </head>
 <body>
 
-<!-- ===================== INTRO ===================== -->
-<div class="screen" id="screenIntro">
-  <div class="center-block">
-    <div class="step-icon">🎮</div>
-    <h1>Gyors kalibráció</h1>
-    <p>Kb. 40 másodperc. Végigvezetlek pár alapmozdulaton, hogy a vezérlés
-       a Te tested méretéhez és mozgásához igazodjon. Csak egyszer kell —
-       legközelebb már nem lesz rá szükség, csak egy gyors ellenőrzésre.</p>
-    <p style="font-size:12.5px;">Tartsd magad elé a telefont, szabad hely legyen körülötted.</p>
+<header>
+  <h1>Digitális kimenet teszt</h1>
+  <p>Gomb-le / gomb-fel események a kalibrált mozdulatokból</p>
+</header>
+
+<div id="profileWarning" class="warn-box hidden">
+  Nincs mentett kalibrációs profil ezen az eszközön — alapértelmezett, hozzávetőleges küszöbökkel indulok.
+  A pontosabb működéshez előbb futtasd le a kalibrációt.
+</div>
+<div id="profileOk" class="ok-box hidden">Kalibrációs profil betöltve ✓</div>
+
+<div class="card" id="permCard">
+  <h2>Indítás</h2>
+  <button class="btn-primary" id="permBtn">Szenzorok engedélyezése és indítás</button>
+</div>
+
+<div class="card hidden" id="sensitivityCard">
+  <h2>Érzékenység</h2>
+  <div class="slider-row">
+    <span style="font-size:12px; color:var(--text-dim);">Laza</span>
+    <input type="range" id="sensSlider" min="20" max="80" value="45">
+    <span style="font-size:12px; color:var(--text-dim);">Szigorú</span>
   </div>
-  <div class="controls">
-    <button class="btn-primary" id="permBtn">Szenzorok engedélyezése és kezdés</button>
+  <div style="text-align:center;"><span class="slider-val" id="sensVal">45%</span> a kalibrált csúcsérték %-ában — ekkora kitérésnél kapcsol be a gomb</div>
+</div>
+
+<div class="card hidden" id="physCard">
+  <h2>Fizikai gombok</h2>
+  <div class="row">
+    <div class="phys-btn" id="btnLeft">BAL</div>
+    <div class="phys-btn" id="btnRight">JOBB</div>
   </div>
 </div>
 
-<!-- ===================== CALIBRATION FLOW ===================== -->
-<div class="screen hidden" id="screenFlow">
-  <div class="progress-wrap">
-    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="progress-label"><span id="progressText">1 / 10</span><span id="stepNameText"></span></div>
-  </div>
-
-  <div class="step-stage">
-    <div class="step-icon" id="stepIcon">🧍</div>
-    <div>
-      <h2 class="step-title" id="stepTitle">Alapállás</h2>
-      <p class="step-instruction" id="stepInstruction">Állj nyugodtan, tartsd a telefont magad előtt.</p>
-    </div>
-    <div class="phase-badge" id="phaseBadge">Készülj…</div>
-    <div class="countdown-ring" id="countdownRing">
-      <svg width="120" height="120"><circle class="bg" cx="60" cy="60" r="54"></circle>
-        <circle class="fg" id="ringProgress" cx="60" cy="60" r="54" stroke-dasharray="339" stroke-dashoffset="0"></circle></svg>
-      <span id="countdownNum">3</span>
-    </div>
-  </div>
-
-  <div class="controls">
-    <button class="btn-ghost" id="skipStepBtn">Ismétlés / kihagyás</button>
-  </div>
+<div class="card hidden" id="gestureCard">
+  <h2>Mozgás-gombok</h2>
+  <div class="gesture-grid" id="gestureGrid"></div>
 </div>
 
-<!-- ===================== SUMMARY ===================== -->
-<div class="screen hidden" id="screenSummary">
-  <header style="padding:0 0 12px;"><h2>Kalibráció kész ✓</h2><p>A profil elmentve erre az eszközre.</p></header>
-
-  <div id="httpsNote" class="warn-box hidden">A szenzorok egy része nem adott adatot (pl. nem HTTPS-en futott az oldal) — ezek a mezők közelítő/alap értékkel lettek feltöltve.</div>
-
-  <div class="summary-card" id="summaryCard"></div>
-
-  <div class="controls" style="padding:0; margin-top:auto;">
-    <button class="btn-primary" id="startGameBtn">Kész — irány a játék</button>
-    <div class="row">
-      <button class="btn-ghost" id="recalibrateBtn">Újrakalibrálás</button>
-      <button class="btn-ghost" id="exportBtn">Profil exportálása (JSON)</button>
-    </div>
+<div class="card hidden" id="logCard">
+  <h2>Esemény-log</h2>
+  <div class="log" id="logList"><div class="empty">Még nincs esemény.</div></div>
+  <div class="row" style="margin-top:10px;">
+    <button class="btn-ghost" id="clearLogBtn">Log törlése</button>
+    <button class="btn-ghost" id="exportLogBtn">Exportálás JSON</button>
   </div>
 </div>
 
 <script>
 (function(){
-  const STORAGE_KEY = 'motion_calibration_profile_v1';
+  const CAL_KEY = 'motion_calibration_profile_v1';
 
-  // ---------- step definitions ----------
-  // durations in ms. "prep" = get-ready countdown, "hold" = capture window
-  const STEPS = [
-    { id:'baseline',  icon:'🧍', title:'Alapállás', instr:'Állj nyugodtan, tartsd a telefont magad előtt, szemmagasságban.', prep:6000, hold:9000, type:'baseline' },
-    { id:'squat',     icon:'⬇️', title:'Leguggolás', instr:'Guggolj le egyszer, majd állj vissza.', prep:4500, hold:6600, type:'peak', axis:'accel' },
-    { id:'reach',     icon:'⬆️', title:'Felnyúlás', instr:'Nyújtózz fel, emeld a telefont a fejed fölé.', prep:4500, hold:6600, type:'peak', axis:'accel' },
-    { id:'walk',      icon:'🚶', title:'Járás helyben', instr:'Járj helyben, normál tempóban.', prep:4500, hold:9600, type:'cadence' },
-    { id:'run',       icon:'🏃', title:'Futás helyben', instr:'Fuss helyben, gyorsabb tempóban.', prep:4500, hold:9600, type:'cadence' },
-    { id:'sideLeft',  icon:'⬅️', title:'Oldalra lépés — balra', instr:'Lépj egyet balra, majd vissza.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
-    { id:'sideRight', icon:'➡️', title:'Oldalra lépés — jobbra', instr:'Lépj egyet jobbra, majd vissza.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
-    { id:'leanLeft',  icon:'↩️', title:'Dőlés — balra', instr:'Dőlj el balra, majd állj vissza egyenesbe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
-    { id:'leanRight', icon:'↪️', title:'Dőlés — jobbra', instr:'Dőlj el jobbra, majd állj vissza egyenesbe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
-    { id:'turnLeft',  icon:'↺', title:'Fordulás — balra', instr:'Fordulj el a saját tengelyed körül balra, majd fordulj vissza szembe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
-    { id:'turnRight', icon:'↻', title:'Fordulás — jobbra', instr:'Fordulj el a saját tengelyed körül jobbra, majd fordulj vissza szembe.', prep:3600, hold:5400, type:'peak', axis:'gyro' },
-    { id:'phonePush', icon:'📱', title:'Telefon kinyújtása', instr:'Nyújtsd előre a telefont karnyújtásnyira, majd húzd vissza.', prep:3600, hold:5400, type:'peak', axis:'accel' },
+  // fallback thresholds if no calibration profile exists yet — rough guesses
+  // based on earlier test sessions, clearly inferior to a real per-user profile
+  const DEFAULT_PROFILE = {
+    baseline: { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 },
+    squat:     { dominantAxis:'rb', dominantSignedValue:35,  firstPeakSignedValue:35 },
+    reach:     { dominantAxis:'rb', dominantSignedValue:-100, firstPeakSignedValue:-100 },
+    sideLeft:  { dominantAxis:'ra', dominantSignedValue:28,  firstPeakSignedValue:28 },
+    sideRight: { dominantAxis:'rb', dominantSignedValue:50,  firstPeakSignedValue:50 },
+    stepBack:  { dominantAxis:'ay', dominantSignedValue:2.5, firstPeakSignedValue:2.5 },
+    leanLeft:  { dominantAxis:'rg', dominantSignedValue:-55, firstPeakSignedValue:-55 },
+    leanRight: { dominantAxis:'rg', dominantSignedValue:-65, firstPeakSignedValue:65 },
+    turnLeft:  { dominantAxis:'ra', dominantSignedValue:126, firstPeakSignedValue:126 },
+    turnRight: { dominantAxis:'ra', dominantSignedValue:178, firstPeakSignedValue:-178 },
+    twistLeft: { dominantAxis:'ra', dominantSignedValue:60,  firstPeakSignedValue:60 },
+    twistRight:{ dominantAxis:'ra', dominantSignedValue:60,  firstPeakSignedValue:-60 },
+    phonePush: { dominantAxis:'rb', dominantSignedValue:58,  firstPeakSignedValue:58 },
+    walk:      { peakAccelMag:2.3 },
+    run:       { peakAccelMag:6.5 }
+  };
+
+  // ---------- gesture definitions ----------
+  const DIRECTIONAL_GESTURES = [
+    { id:'squat',      icon:'⬇️', label:'Guggolás' },
+    { id:'reach',      icon:'⬆️', label:'Felnyúlás' },
+    { id:'sideLeft',   icon:'⬅️', label:'Oldallépés bal' },
+    { id:'sideRight',  icon:'➡️', label:'Oldallépés jobb' },
+    { id:'stepBack',   icon:'⬇️', label:'Hátralépés' },
+    { id:'leanLeft',   icon:'↩️', label:'Dőlés bal' },
+    { id:'leanRight',  icon:'↪️', label:'Dőlés jobb' },
+    { id:'turnLeft',   icon:'↺', label:'Fordulás bal' },
+    { id:'turnRight',  icon:'↻', label:'Fordulás jobb' },
+    { id:'twistLeft',  icon:'🔄', label:'Csavarás bal' },
+    { id:'twistRight', icon:'🔃', label:'Csavarás jobb' },
+    { id:'phonePush',  icon:'📱', label:'Kinyújtás' },
   ];
 
-  let currentStepIndex = 0;
-  let buffer = [];              // samples collected during current "hold" window
-  let baselineStats = null;     // computed after step 0
-  let sensorsOk = false;
-  let profile = {};             // final calibration profile
-  let phaseTimer = null;
+  let profile = DEFAULT_PROFILE;
+  let usingRealProfile = false;
 
-  // ---------- speech ----------
-  function speak(text){
-    if(!('speechSynthesis' in window)) return;
-    try{
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'hu-HU';
-      u.rate = 1.0;
-      window.speechSynthesis.speak(u);
-    }catch(e){}
-  }
+  try{
+    const raw = localStorage.getItem(CAL_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      // merge: prefer real profile values, fall back to defaults for anything missing
+      profile = Object.assign({}, DEFAULT_PROFILE, parsed);
+      usingRealProfile = true;
+    }
+  }catch(e){}
 
-  // ---------- sensor plumbing ----------
-  let latest = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
-  let capturing = false;
+  document.getElementById(usingRealProfile ? 'profileOk' : 'profileWarning').classList.remove('hidden');
+
+  // ---------- gesture state machines ----------
+  const gestureState = {}; // id -> { pressed: bool, smoothed: number }
+  DIRECTIONAL_GESTURES.forEach(function(g){ gestureState[g.id] = { pressed:false, smoothed:0 }; });
+  gestureState['walk'] = { pressed:false, smoothed:0 };
+  gestureState['run']  = { pressed:false, smoothed:0 };
+
+  let sensitivity = 0.45; // fraction of calibrated peak used as press threshold
+  const HYSTERESIS_RATIO = 0.6; // release threshold = press threshold * this
+
+  const eventLog = [];
+  const activeSince = {}; // id -> timestamp when pressed, for computing hold duration
+
+  // ---------- sensors ----------
+  let baseline = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
+  if(profile.baseline){ baseline = Object.assign({}, baseline, profile.baseline); }
+
+  const SMOOTH_ALPHA = 0.35; // exponential moving average factor, higher = less smoothing
 
   function handleMotion(e){
-    sensorsOk = true;
     const acc = e.acceleration || e.accelerationIncludingGravity || {};
     const rot = e.rotationRate || {};
-    latest.ax = acc.x || 0; latest.ay = acc.y || 0; latest.az = acc.z || 0;
-    latest.ra = rot.alpha || 0; latest.rb = rot.beta || 0; latest.rg = rot.gamma || 0;
-    if(capturing){
-      buffer.push({ t: performance.now(), ax: latest.ax, ay: latest.ay, az: latest.az,
-                     ra: latest.ra, rb: latest.rb, rg: latest.rg });
-    }
+    const raw = {
+      ax: (acc.x||0) - baseline.ax, ay: (acc.y||0) - baseline.ay, az: (acc.z||0) - baseline.az,
+      ra: (rot.alpha||0) - baseline.ra, rb: (rot.beta||0) - baseline.rb, rg: (rot.gamma||0) - baseline.rg
+    };
+
+    // directional gestures
+    DIRECTIONAL_GESTURES.forEach(function(g){
+      const cal = profile[g.id];
+      if(!cal) return;
+      const axis = cal.dominantAxis || 'ax';
+      const calVal = (cal.firstPeakSignedValue !== undefined && cal.firstPeakSignedValue !== null)
+        ? cal.firstPeakSignedValue : cal.dominantSignedValue;
+      if(calVal === undefined || calVal === null) return;
+
+      const liveRaw = raw[axis] !== undefined ? raw[axis] : 0;
+      const st = gestureState[g.id];
+      st.smoothed = st.smoothed + SMOOTH_ALPHA * (liveRaw - st.smoothed);
+
+      const pressThr = calVal * sensitivity;
+      const releaseThr = pressThr * HYSTERESIS_RATIO;
+
+      let shouldPress, shouldRelease;
+      if(calVal >= 0){
+        shouldPress = st.smoothed >= pressThr;
+        shouldRelease = st.smoothed <= releaseThr;
+      }else{
+        shouldPress = st.smoothed <= pressThr;
+        shouldRelease = st.smoothed >= releaseThr;
+      }
+
+      if(!st.pressed && shouldPress){ setPressed(g.id, true); }
+      else if(st.pressed && shouldRelease){ setPressed(g.id, false); }
+    });
+
+    // amplitude-based: walk / run, mutually favoring the higher band
+    const accelMag = Math.sqrt(raw.ax*raw.ax + raw.ay*raw.ay + raw.az*raw.az);
+    const stMag = gestureState['__mag'] || (gestureState['__mag'] = { smoothed:0 });
+    stMag.smoothed = stMag.smoothed + SMOOTH_ALPHA * (accelMag - stMag.smoothed);
+
+    const walkPeak = (profile.walk && profile.walk.peakAccelMag) || 2.3;
+    const runPeak = (profile.run && profile.run.peakAccelMag) || 6.5;
+    const runPress = runPeak * sensitivity, runRelease = runPress * HYSTERESIS_RATIO;
+    const walkPress = walkPeak * sensitivity, walkRelease = walkPress * HYSTERESIS_RATIO;
+
+    const runSt = gestureState['run'];
+    if(!runSt.pressed && stMag.smoothed >= runPress){ setPressed('run', true); }
+    else if(runSt.pressed && stMag.smoothed <= runRelease){ setPressed('run', false); }
+
+    const walkSt = gestureState['walk'];
+    const walkCandidate = stMag.smoothed >= walkPress && stMag.smoothed < runPress;
+    if(!walkSt.pressed && walkCandidate){ setPressed('walk', true); }
+    else if(walkSt.pressed && stMag.smoothed <= walkRelease){ setPressed('walk', false); }
+  }
+
+  function setPressed(id, pressed){
+    gestureState[id].pressed = pressed;
+    logEvent(id, pressed ? 'down' : 'up');
+    renderGestureButton(id);
   }
 
   // ---------- permission & start ----------
-  const screenIntro = document.getElementById('screenIntro');
-  const screenFlow = document.getElementById('screenFlow');
-  const screenSummary = document.getElementById('screenSummary');
-
   document.getElementById('permBtn').addEventListener('click', function(){
     const needsPerm = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
-    if(needsPerm){
-      DeviceMotionEvent.requestPermission().then(function(result){
-        if(result === 'granted'){
-          window.addEventListener('devicemotion', handleMotion);
-          beginFlow();
-        }else{
-          alert('Szenzor-hozzáférés nélkül a kalibráció nem tud lefutni. Engedélyezd a böngésző beállításaiban.');
-        }
-      }).catch(function(){
-        alert('Hiba történt az engedélykérésnél.');
-      });
-    }else{
+    function start(){
       window.addEventListener('devicemotion', handleMotion);
-      beginFlow();
+      document.getElementById('permCard').classList.add('hidden');
+      ['sensitivityCard','physCard','gestureCard','logCard'].forEach(function(id){
+        document.getElementById(id).classList.remove('hidden');
+      });
+      buildGestureGrid();
     }
-  });
-
-  function beginFlow(){
-    screenIntro.classList.add('hidden');
-    screenFlow.classList.remove('hidden');
-    currentStepIndex = 0;
-    runStep(currentStepIndex);
-  }
-
-  // ---------- step runner ----------
-  const progressFill = document.getElementById('progressFill');
-  const progressText = document.getElementById('progressText');
-  const stepNameText = document.getElementById('stepNameText');
-  const stepIcon = document.getElementById('stepIcon');
-  const stepTitle = document.getElementById('stepTitle');
-  const stepInstruction = document.getElementById('stepInstruction');
-  const phaseBadge = document.getElementById('phaseBadge');
-  const countdownNum = document.getElementById('countdownNum');
-  const ringProgress = document.getElementById('ringProgress');
-  const RING_CIRC = 339;
-
-  document.getElementById('skipStepBtn').addEventListener('click', function(){
-    clearTimeout(phaseTimer);
-    runStep(currentStepIndex); // redo current step
-  });
-
-  function setRing(fraction){ // fraction 0..1 remaining
-    ringProgress.setAttribute('stroke-dashoffset', String(RING_CIRC * (1 - fraction)));
-  }
-
-  function runStep(index){
-    const step = STEPS[index];
-    buffer = [];
-    progressFill.style.width = (index / STEPS.length * 100) + '%';
-    progressText.textContent = (index + 1) + ' / ' + STEPS.length;
-    stepNameText.textContent = step.title;
-    stepIcon.textContent = step.icon;
-    stepTitle.textContent = step.title;
-    stepInstruction.textContent = step.instr;
-    speak(step.title + '. ' + step.instr);
-
-    // --- prep phase ---
-    phaseBadge.textContent = 'Készülj…';
-    phaseBadge.className = 'phase-badge ready';
-    let prepRemaining = step.prep;
-    const prepStart = performance.now();
-    countdownNum.textContent = Math.ceil(prepRemaining / 1000);
-    setRing(1);
-
-    function prepTick(){
-      const elapsed = performance.now() - prepStart;
-      const remaining = Math.max(0, step.prep - elapsed);
-      countdownNum.textContent = Math.ceil(remaining / 1000) || '';
-      setRing(remaining / step.prep);
-      if(remaining > 0){
-        phaseTimer = requestAnimationFrame(prepTick);
-      }else{
-        startCapture(step, index);
-      }
-    }
-    phaseTimer = requestAnimationFrame(prepTick);
-  }
-
-  function startCapture(step, index){
-    phaseBadge.textContent = 'Most!';
-    phaseBadge.className = 'phase-badge go';
-    speak('Most!');
-    capturing = true;
-    buffer = [];
-    const holdStart = performance.now();
-    countdownNum.textContent = '';
-
-    function captureTick(){
-      const elapsed = performance.now() - holdStart;
-      const remaining = Math.max(0, step.hold - elapsed);
-      setRing(remaining / step.hold);
-      if(remaining > 0){
-        phaseTimer = requestAnimationFrame(captureTick);
-      }else{
-        capturing = false;
-        finishStep(step, index);
-      }
-    }
-    phaseTimer = requestAnimationFrame(captureTick);
-  }
-
-  function finishStep(step, index){
-    const metrics = computeMetrics(step, buffer);
-    profile[step.id] = metrics;
-
-    const next = index + 1;
-    if(next < STEPS.length){
-      currentStepIndex = next;
-      runStep(next);
+    if(needsPerm){
+      DeviceMotionEvent.requestPermission().then(function(r){
+        if(r === 'granted'){ start(); }
+        else{ alert('Szenzor-hozzáférés nélkül nem működik a teszt.'); }
+      }).catch(function(){ alert('Hiba az engedélykérésnél.'); });
     }else{
-      progressFill.style.width = '100%';
-      finishCalibration();
+      start();
     }
+  });
+
+  // ---------- sensitivity slider ----------
+  const sensSlider = document.getElementById('sensSlider');
+  const sensVal = document.getElementById('sensVal');
+  sensSlider.addEventListener('input', function(){
+    sensitivity = Number(sensSlider.value) / 100;
+    sensVal.textContent = sensSlider.value + '%';
+  });
+
+  // ---------- gesture grid ----------
+  const gestureGrid = document.getElementById('gestureGrid');
+  function buildGestureGrid(){
+    gestureGrid.innerHTML = '';
+    const all = DIRECTIONAL_GESTURES.concat([
+      { id:'walk', icon:'🚶', label:'Járás' },
+      { id:'run',  icon:'🏃', label:'Futás' }
+    ]);
+    all.forEach(function(g){
+      const el = document.createElement('div');
+      el.className = 'gesture-btn';
+      el.id = 'g_' + g.id;
+      el.innerHTML = '<span class="icon">' + g.icon + '</span><span class="label">' + g.label + '</span>';
+      gestureGrid.appendChild(el);
+    });
+  }
+  function renderGestureButton(id){
+    const el = document.getElementById('g_' + id);
+    if(!el) return;
+    el.classList.toggle('pressed', gestureState[id].pressed);
   }
 
-  // ---------- metric computation ----------
-  function mean(arr){ return arr.reduce((a,b)=>a+b,0) / (arr.length || 1); }
-  function std(arr, m){ return Math.sqrt(mean(arr.map(v => (v - m) * (v - m)))); }
-
-  function computeMetrics(step, samples){
-    if(samples.length === 0){
-      return { warning:'no_sensor_data' };
-    }
-    if(step.type === 'baseline'){
-      const axArr = samples.map(s=>s.ax), ayArr = samples.map(s=>s.ay), azArr = samples.map(s=>s.az);
-      const raArr = samples.map(s=>s.ra), rbArr = samples.map(s=>s.rb), rgArr = samples.map(s=>s.rg);
-      const stats = {
-        ax: mean(axArr), ay: mean(ayArr), az: mean(azArr),
-        ra: mean(raArr), rb: mean(rbArr), rg: mean(rgArr),
-        noiseAccel: std(axArr, mean(axArr)) + std(ayArr, mean(ayArr)) + std(azArr, mean(azArr)),
-        noiseGyro: std(raArr, mean(raArr)) + std(rbArr, mean(rbArr)) + std(rgArr, mean(rgArr)),
-        sampleRateHz: samples.length / (step.hold / 1000)
-      };
-      baselineStats = stats;
-      return stats;
-    }
-
-    if(step.type === 'peak'){
-      const base = baselineStats || { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
-      let peakAccelMag = 0, peakGyroMag = 0;
-      // track the single largest signed deviation per axis, across all 6 axes,
-      // so we can report which axis actually carries direction info for this
-      // exercise instead of assuming accel-X (which the gimbal problem makes unreliable)
-      const axisPeaks = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
-      samples.forEach(function(s){
-        const d = { ax: s.ax-base.ax, ay: s.ay-base.ay, az: s.az-base.az,
-                    ra: s.ra-base.ra, rb: s.rb-base.rb, rg: s.rg-base.rg };
-        const accelMag = Math.sqrt(d.ax*d.ax + d.ay*d.ay + d.az*d.az);
-        if(accelMag > peakAccelMag){ peakAccelMag = accelMag; }
-        const gyroMag = Math.sqrt(d.ra*d.ra + d.rb*d.rb + d.rg*d.rg);
-        if(gyroMag > peakGyroMag){ peakGyroMag = gyroMag; }
-        Object.keys(axisPeaks).forEach(function(k){
-          if(Math.abs(d[k]) > Math.abs(axisPeaks[k])){ axisPeaks[k] = d[k]; }
-        });
-      });
-      let dominantAxis = 'ax', dominantValue = 0;
-      Object.keys(axisPeaks).forEach(function(k){
-        if(Math.abs(axisPeaks[k]) > Math.abs(dominantValue)){ dominantAxis = k; dominantValue = axisPeaks[k]; }
-      });
-      return {
-        peakAccelMag: round2(peakAccelMag),
-        peakGyroMag: round2(peakGyroMag),
-        signedAccelX: round2(axisPeaks.ax), // kept for backward compatibility with earlier exports
-        dominantAxis: dominantAxis,
-        dominantSignedValue: round2(dominantValue)
-      };
-    }
-
-    if(step.type === 'cadence'){
-      const base = baselineStats || { ax:0, ay:0, az:0 };
-      const points = samples.map(function(s){
-        const dax = s.ax - base.ax, day = s.ay - base.ay, daz = s.az - base.az;
-        return { t: s.t, mag: Math.sqrt(dax*dax + day*day + daz*daz) };
-      });
-      const peakAccelMag = Math.max.apply(null, points.map(p=>p.mag).concat([0]));
-      // local-maxima peak counting above 40% of the observed peak, with a debounce
-      // window so a single footstep's vibration can't be counted as multiple steps
-      // (real human step cadence tops out well under 4 Hz, i.e. >250ms apart)
-      const threshold = peakAccelMag * 0.4;
-      const debounceMs = 250;
-      let count = 0, rising = false, lastPeakT = -Infinity;
-      for(let i=1;i<points.length;i++){
-        const cur = points[i], prev = points[i-1];
-        if(cur.mag > threshold && cur.mag > prev.mag){ rising = true; }
-        else if(rising && cur.mag < prev.mag){
-          if(prev.t - lastPeakT > debounceMs){ count++; lastPeakT = prev.t; }
-          rising = false;
-        }
-      }
-      const durationSec = (samples[samples.length-1].t - samples[0].t) / 1000 || (step.hold/1000);
-      const cadenceHz = count / durationSec;
-      return { peakAccelMag: round2(peakAccelMag), stepCount: count, cadenceHz: round2(cadenceHz) };
-    }
-
-    return {};
+  // ---------- physical buttons ----------
+  const btnLeft = document.getElementById('btnLeft');
+  const btnRight = document.getElementById('btnRight');
+  function wirePhysButton(el, id){
+    function down(ev){ ev.preventDefault(); el.classList.add('pressed'); logEvent(id, 'down'); }
+    function up(ev){ ev.preventDefault(); el.classList.remove('pressed'); logEvent(id, 'up'); }
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointerleave', up);
   }
+  wirePhysButton(btnLeft, 'buttonLeft');
+  wirePhysButton(btnRight, 'buttonRight');
 
-  function round2(n){ return Math.round(n * 100) / 100; }
-
-  // ---------- summary / storage ----------
-  function finishCalibration(){
-    screenFlow.classList.add('hidden');
-    screenSummary.classList.remove('hidden');
-
-    if(!sensorsOk){
-      document.getElementById('httpsNote').classList.remove('hidden');
-    }
-
-    profile.calibratedAt = new Date().toISOString();
-    profile.deviceHint = navigator.userAgent.slice(0, 80);
-
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(profile)); }catch(e){}
-
-    renderSummary(profile);
+  // ---------- event log ----------
+  const logList = document.getElementById('logList');
+  function logEvent(id, phase){
+    const now = performance.now();
+    let holdMs = null;
+    if(phase === 'down'){ activeSince[id] = now; }
+    else if(phase === 'up' && activeSince[id] !== undefined){ holdMs = now - activeSince[id]; }
+    eventLog.push({ id: id, phase: phase, t: Date.now(), holdMs: holdMs });
+    renderLog();
   }
-
-  function renderSummary(p){
-    const card = document.getElementById('summaryCard');
-    const rows = [
-      ['Alapzaj (gyorsulás)', p.baseline ? p.baseline.noiseAccel.toFixed(2) : '–', p.baseline && p.baseline.noiseAccel < 1 ? 'ok' : 'warn'],
-      ['Guggolás — csúcskitérés', p.squat ? p.squat.peakAccelMag : '–', 'ok'],
-      ['Felnyúlás — csúcskitérés', p.reach ? p.reach.peakAccelMag : '–', 'ok'],
-      ['Járás — kadencia (Hz)', p.walk ? p.walk.cadenceHz : '–', 'ok'],
-      ['Futás — kadencia (Hz)', p.run ? p.run.cadenceHz : '–', 'ok'],
-      ['Oldallépés bal — kitérés', p.sideLeft ? p.sideLeft.peakGyroMag : '–', 'ok'],
-      ['Oldallépés jobb — kitérés', p.sideRight ? p.sideRight.peakGyroMag : '–', 'ok'],
-      ['Dőlés bal — kitérés', p.leanLeft ? p.leanLeft.peakGyroMag : '–', 'ok'],
-      ['Dőlés jobb — kitérés', p.leanRight ? p.leanRight.peakGyroMag : '–', 'ok'],
-      ['Fordulás bal — kitérés', p.turnLeft ? p.turnLeft.peakGyroMag : '–', 'ok'],
-      ['Fordulás jobb — kitérés', p.turnRight ? p.turnRight.peakGyroMag : '–', 'ok'],
-      ['Telefon kinyújtása — kitérés', p.phonePush ? p.phonePush.peakAccelMag : '–', 'ok'],
-    ];
-    card.innerHTML = rows.map(function(r){
-      return '<div class="summary-row"><span class="k">' + r[0] + '</span><span class="v ' + r[2] + '">' + r[1] + '</span></div>';
+  function renderLog(){
+    const recent = eventLog.slice(-40).reverse();
+    if(recent.length === 0){ logList.innerHTML = '<div class="empty">Még nincs esemény.</div>'; return; }
+    logList.innerHTML = recent.map(function(e){
+      const time = new Date(e.t).toLocaleTimeString('hu-HU', { hour12:false }) + '.' + String(e.t % 1000).padStart(3,'0');
+      const holdText = e.holdMs !== null ? ' (' + (e.holdMs/1000).toFixed(2) + 's)' : '';
+      return '<div class="log-row"><span>' + e.id + '</span><span class="' + e.phase + '">' +
+             (e.phase === 'down' ? 'LE' : 'FEL' + holdText) + ' · ' + time + '</span></div>';
     }).join('');
   }
 
-  document.getElementById('recalibrateBtn').addEventListener('click', function(){
-    profile = {};
-    baselineStats = null;
-    sensorsOk = false;
-    document.getElementById('httpsNote').classList.add('hidden');
-    screenSummary.classList.add('hidden');
-    screenFlow.classList.remove('hidden');
-    currentStepIndex = 0;
-    runStep(0);
+  document.getElementById('clearLogBtn').addEventListener('click', function(){
+    eventLog.length = 0;
+    renderLog();
   });
-
-  document.getElementById('exportBtn').addEventListener('click', function(){
-    const blob = new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json' });
+  document.getElementById('exportLogBtn').addEventListener('click', function(){
+    const blob = new Blob([JSON.stringify(eventLog, null, 2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'kalibracios_profil.json';
+    a.href = url; a.download = 'digitalis_esemenynaplo.json';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
   });
-
-  document.getElementById('startGameBtn').addEventListener('click', function(){
-    alert('Itt indulna a játék — a mentett profil localStorage-ban elérhető a kulcs alatt:\n' + STORAGE_KEY);
-  });
-
-  // ---------- resume existing profile on load (skip flow if already calibrated) ----------
-  // Commented out intentionally for this prototype so you can always re-test the full flow.
-  // In the real game you'd check localStorage here and jump straight to a short "quick check"
-  // instead of the full 10-step flow if a profile already exists.
 })();
 </script>
 
