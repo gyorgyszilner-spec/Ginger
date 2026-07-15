@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v2</title>
+    <title>Fektetett Szenzoros Gamepad v3 - NYERS ADAT</title>
     <style>
         * {
             box-sizing: border-box;
@@ -54,11 +54,11 @@
             opacity: 0.7;
             font-weight: normal;
         }
-        
-        #btn-tl { top: 15px; left: 15px; border-color: #ffb74d; } 
-        #btn-tr { top: 15px; right: 15px; border-color: #4caf50; } 
-        #btn-bl { bottom: 15px; left: 15px; border-color: #29b6f6; } 
-        #btn-br { bottom: 15px; right: 15px; border-color: #ec407a; } 
+
+        #btn-tl { top: 15px; left: 15px; border-color: #ffb74d; }
+        #btn-tr { top: 15px; right: 15px; border-color: #4caf50; }
+        #btn-bl { bottom: 15px; left: 15px; border-color: #29b6f6; }
+        #btn-br { bottom: 15px; right: 15px; border-color: #ec407a; }
 
         .action-btn.active {
             background-color: rgba(255, 255, 255, 0.3);
@@ -68,67 +68,34 @@
 
         #center-panel {
             display: flex;
-            flex-direction: row; 
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 30px;
+            gap: 8px;
             width: 100%;
-            max-width: 600px;
+            max-width: 640px;
             z-index: 5;
         }
 
         #telemetry {
             font-family: monospace;
-            font-size: 0.72rem;
+            font-size: 0.62rem;
             background: rgba(0,0,0,0.6);
             padding: 10px;
             border-radius: 5px;
-            width: 240px;
+            width: 300px;
             text-align: left;
             border: 1px solid rgba(255,255,255,0.1);
+            line-height: 1.5;
         }
-
-        .compass-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            gap: 10px;
-            width: 160px;
-            height: 160px;
-        }
-        .arrow {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 6px;
-            font-size: 1.2rem;
-            color: rgba(255,255,255,0.2);
-        }
-        .arrow.active {
-            background-color: #00e676;
-            color: #121212;
-            font-weight: bold;
-            box-shadow: 0 0 12px #00e676;
-        }
-        /* Középállás gomb egyedi stílusa */
-        #dir-c {
-            background-color: rgba(255,255,255,0.02);
-            font-size: 0.9rem;
-        }
-        #dir-c.active {
-            background-color: #2196f3;
-            color: white;
-            box-shadow: 0 0 12px #2196f3;
+        #telemetry b { color: #ffca28; }
+        #record-count {
+            font-size: 0.75rem;
+            opacity: 0.8;
         }
     </style>
 </head>
 <body>
-<!-- === ELSŐ RÉSZ VÉGE === -->
-
-
-<!-- === MÁSODIK RÉSZ KEZDETE === -->
     <div id="gamepad-container">
         <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
         <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
@@ -136,90 +103,68 @@
         <div class="action-btn" id="btn-br">G4<br><span>AKCIÓ</span></div>
 
         <div id="center-panel">
-            <div id="telemetry">
-                Szenzorok: Inaktív<br>
-                Dőlés (Fel/Le): 0°<br>
-                Gyorsulás X: 0.00 m/s²<br>
-                Kormány-integrál: 0.00<br>
-                Rekordok: 0
-            </div>
-
-            <div class="compass-grid">
-                <div class="arrow" id="dir-nw">↖</div>
-                <div class="arrow" id="dir-n">↑</div>
-                <div class="arrow" id="dir-ne">↗</div>
-                <div class="arrow" id="dir-w">←</div>
-                <div class="arrow" id="dir-c">KÖZÉP</div>
-                <div class="arrow" id="dir-e">→</div>
-                <div class="arrow" id="dir-sw">↙</div>
-                <div class="arrow" id="dir-s">↓</div>
-                <div class="arrow" id="dir-se">↘</div>
-            </div>
+            <div id="telemetry">Szenzorok: Inaktív</div>
+            <div id="record-count">Rekordok: 0</div>
         </div>
     </div>
 
     <script>
-        const CONFIG = {
-            pitchDeadzone: 6,       
-            accelDeadzone: 0.3,     // Kicsit érzékenyebbre vettem (0.4-ről 0.3-ra)
-            steeringDecay: 0.96,    
-            steeringMax: 10.0,      
-            steeringThreshold: 1.2  // Alacsonyabb küszöb a gyorsabb reakcióért
-        };
+        // === NYERS SZENZOR NAPLÓZÓ ===
+        // Ez a verzió NEM próbál semmit értelmezni (nincs pitch/kormány logika),
+        // csak MINDEN elérhető szenzorértéket kimásol minden tick-ben, hogy utólag
+        // logikázhassuk ki, melyik oszlop mit jelent.
 
         let telemetryData = [];
         let isRunning = false;
-        let pitchZero = 0;          
-        
-        let currentPitch = 0;
-        let currentAccelX = 0;      
-        let virtualSteering = 0;    
+        let recordIntervalId = null;
+        let guideStarted = false;
 
         let buttonStates = { G1: 0, G2: 0, G3: 0, G4: 0 };
-        let directionStates = { UP: 0, DOWN: 0, LEFT: 0, RIGHT: 0 };
+
+        // Legutóbb kapott nyers szenzorértékek (ezeket írjuk ki minden tick-ben)
+        let raw = {
+            ori_alpha: null, ori_beta: null, ori_gamma: null, ori_absolute: null,
+            acc_x: null, acc_y: null, acc_z: null,
+            accG_x: null, accG_y: null, accG_z: null,
+            rot_alpha: null, rot_beta: null, rot_gamma: null,
+            motion_interval: null
+        };
 
         const telemetryEl = document.getElementById('telemetry');
+        const recordCountEl = document.getElementById('record-count');
         const btnTR = document.getElementById('btn-tr');
 
-        // Átdolgozott, üzembiztos gombkezelő a mobilböngészők letöltési korlátaihoz
         const setupButton = (elementId, key, callbackPress) => {
             const btn = document.getElementById(elementId);
-            
-            btn.addEventListener('touchstart', (e) => { 
-                e.preventDefault(); 
-                btn.classList.add('active'); 
-                buttonStates[key] = 1; 
 
-                // FONTOS: ha a hangos vezetés éppen "bármelyik gombot" vár, a szenzorindítást
-                // KÖZVETLENÜL itt, a touchstart eseményen belül hívjuk meg, nem egy await után.
-                // iOS-en a requestPermission() csak akkor működik, ha közvetlenül egy felhasználói
-                // gesztus (touch) hatására, ugyanabban a hívási láncban fut le - egy Promise/await
-                // utáni hívás már nem számít "felhasználói gesztusnak", és az engedélykérés elbukik,
-                // emiatt maradt üres a napló.
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                btn.classList.add('active');
+                buttonStates[key] = 1;
+
+                // Ha a hangos vezetés éppen "bármelyik gombot" vár, a szenzorindítást
+                // KÖZVETLENÜL itt, a touchstart eseményen belül hívjuk meg (iOS user-gesture!)
                 if (guideWaitingForAny) {
                     startSensors();
                 }
 
-                notifyButtonPress(key); // jelzés a hangos vezetésnek, hogy megnyomtak egy gombot
-                // Az indítást és kalibrálást indíthatja touchstart
-                if (key !== 'G3' && callbackPress) callbackPress(); 
+                notifyButtonPress(key);
+                if (key !== 'G3' && callbackPress) callbackPress();
             }, {passive: false});
 
-            btn.addEventListener('touchend', (e) => { 
-                e.preventDefault(); 
-                btn.classList.remove('active'); 
-                buttonStates[key] = 0; 
-                // A mentést (G3) CSAK touchend-re hívjuk, mert a böngészők ezt engedik letölteni!
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                btn.classList.remove('active');
+                buttonStates[key] = 0;
                 if (key === 'G3' && callbackPress) callbackPress();
             }, {passive: false});
         };
 
-        setupButton('btn-tl', 'G1', () => { pitchZero = currentPitch; }); 
-        setupButton('btn-tr', 'G2', () => { startSensors(); });           
-        setupButton('btn-bl', 'G3', () => { saveCSVData(); });            
+        setupButton('btn-tl', 'G1', null);
+        setupButton('btn-tr', 'G2', () => { startSensors(); });
+        setupButton('btn-bl', 'G3', () => { saveCSVData(); });
         setupButton('btn-br', 'G4', null);
 
-        // A hangos vezetés az oldal betöltésekor automatikusan elindul
         window.addEventListener('load', () => {
             if (!guideStarted) {
                 guideStarted = true;
@@ -227,18 +172,10 @@
             }
         });
 
-        // === HARMADIK RÉSZ KEZDETE ===
-        let recordIntervalId = null;
-        let guideStarted = false;
-
         async function startSensors() {
             if (isRunning) return;
 
             try {
-                // JAVÍTÁS: az orientáció és a mozgás engedélyét külön, egymástól függetlenül kérjük le.
-                // Sok Android eszközön a DeviceMotionEvent.requestPermission EGYÁLTALÁN NEM LÉTEZIK,
-                // ezért az eredeti kód itt hibát dobott, isRunning sosem lett true,
-                // és emiatt a telemetryData mindig üres maradt (ezért nem lehetett menteni).
                 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     const orientationPerm = await DeviceOrientationEvent.requestPermission();
                     if (orientationPerm !== 'granted') {
@@ -246,7 +183,6 @@
                         return;
                     }
                 }
-
                 if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                     const motionPerm = await DeviceMotionEvent.requestPermission();
                     if (motionPerm !== 'granted') {
@@ -270,83 +206,60 @@
         }
 
         function handleOrientation(event) {
-            // Eszköztől függően a béta vagy gamma hordozza a fektetett dőlést.
-            // Ha a telefon teljesen fekszik, mindkettőt figyeljük a biztonság kedvéért.
-            if (event.gamma !== null && Math.abs(event.gamma) < 60) {
-                currentPitch = event.gamma; 
-            } else if (event.beta !== null) {
-                currentPitch = event.beta;
-            }
+            raw.ori_alpha = event.alpha;
+            raw.ori_beta = event.beta;
+            raw.ori_gamma = event.gamma;
+            raw.ori_absolute = event.absolute;
         }
 
         function handleMotion(event) {
-            // ATOMBIZTOS SZENZORVÁLASZTÓ:
-            // Ha az accelerationWithoutGravity nincs vagy 0-t ad, a sima acceleration-t olvassuk le!
-            let accX = 0;
-            if (event.accelerationWithoutGravity && event.accelerationWithoutGravity.x !== null && event.accelerationWithoutGravity.x !== 0) {
-                accX = event.accelerationWithoutGravity.x;
-            } else if (event.acceleration && event.acceleration.x !== null) {
-                accX = event.acceleration.x;
+            if (event.acceleration) {
+                raw.acc_x = event.acceleration.x;
+                raw.acc_y = event.acceleration.y;
+                raw.acc_z = event.acceleration.z;
             }
-            
-            // Ha kaptunk értéket, feldolgozzuk
-            if (accX !== 0) {
-                if (Math.abs(accX) < CONFIG.accelDeadzone) {
-                    currentAccelX = 0;
-                    virtualSteering *= CONFIG.steeringDecay; 
-                } else {
-                    currentAccelX = accX;
-                    // Megfordítottam az előjelet (-accX), mert fektetett módban a fizikai rántás iránya fordított
-                    virtualSteering += (-accX * 0.3); 
-                }
-                virtualSteering = Math.max(-CONFIG.steeringMax, Math.min(CONFIG.steeringMax, virtualSteering));
-            } else {
-                // Ha teljesen mozdulatlan, akkor is csengjen le a kormány
-                virtualSteering *= CONFIG.steeringDecay;
+            if (event.accelerationIncludingGravity) {
+                raw.accG_x = event.accelerationIncludingGravity.x;
+                raw.accG_y = event.accelerationIncludingGravity.y;
+                raw.accG_z = event.accelerationIncludingGravity.z;
             }
+            if (event.rotationRate) {
+                raw.rot_alpha = event.rotationRate.alpha;
+                raw.rot_beta = event.rotationRate.beta;
+                raw.rot_gamma = event.rotationRate.gamma;
+            }
+            raw.motion_interval = event.interval;
+        }
+
+        function fmt(v, d) {
+            if (v === null || v === undefined || isNaN(v)) return '--';
+            return v.toFixed(d === undefined ? 1 : d);
         }
 
         function recordDataTick() {
             if (!isRunning) return;
 
-            let relativePitch = currentPitch - pitchZero;
-            directionStates.UP = 0;
-            directionStates.DOWN = 0;
-
-            if (relativePitch > CONFIG.pitchDeadzone) {
-                directionStates.DOWN = 1;
-            } else if (relativePitch < -CONFIG.pitchDeadzone) {
-                directionStates.UP = 1;
-            }
-
-            directionStates.LEFT = 0;
-            directionStates.RIGHT = 0;
-
-            if (virtualSteering > CONFIG.steeringThreshold) {
-                directionStates.RIGHT = 1;
-            } else if (virtualSteering < -CONFIG.steeringThreshold) {
-                directionStates.LEFT = 1;
-            }
-
-            updateVisualArrows();
-
             telemetryEl.innerHTML = `
-                Szenzorok: FUT<br>
-                Dőlés (Fel/Le): ${relativePitch.toFixed(1)}° (${directionStates.UP ? 'FEL' : directionStates.DOWN ? 'LE' : '0'})<br>
-                Gyorsulás X: ${currentAccelX.toFixed(2)} m/s²<br>
-                Kormány-integrál: ${virtualSteering.toFixed(2)} (${directionStates.LEFT ? 'BAL' : directionStates.RIGHT ? 'JOBB' : '0'})<br>
-                Rekordok: ${telemetryData.length}
+                Szenzorok: <b>FUT</b><br>
+                --- deviceorientation ---<br>
+                alpha: ${fmt(raw.ori_alpha)}&deg;  beta: ${fmt(raw.ori_beta)}&deg;  gamma: ${fmt(raw.ori_gamma)}&deg;<br>
+                --- acceleration (gravity nélkül) ---<br>
+                x: ${fmt(raw.acc_x, 2)}  y: ${fmt(raw.acc_y, 2)}  z: ${fmt(raw.acc_z, 2)} m/s&sup2;<br>
+                --- accelerationIncludingGravity ---<br>
+                x: ${fmt(raw.accG_x, 2)}  y: ${fmt(raw.accG_y, 2)}  z: ${fmt(raw.accG_z, 2)} m/s&sup2;<br>
+                --- rotationRate ---<br>
+                alpha: ${fmt(raw.rot_alpha)}  beta: ${fmt(raw.rot_beta)}  gamma: ${fmt(raw.rot_gamma)} &deg;/s<br>
+                motion interval: ${fmt(raw.motion_interval, 1)} ms
             `;
+            recordCountEl.textContent = `Rekordok: ${telemetryData.length}`;
 
             telemetryData.push({
                 timestamp: Date.now(),
-                pitch: relativePitch.toFixed(2),
-                accelX: currentAccelX.toFixed(2),
-                steering: virtualSteering.toFixed(2),
-                dir_UP: directionStates.UP,
-                dir_DOWN: directionStates.DOWN,
-                dir_LEFT: directionStates.LEFT,
-                dir_RIGHT: directionStates.RIGHT,
+                ori_alpha: raw.ori_alpha, ori_beta: raw.ori_beta, ori_gamma: raw.ori_gamma, ori_absolute: raw.ori_absolute,
+                acc_x: raw.acc_x, acc_y: raw.acc_y, acc_z: raw.acc_z,
+                accG_x: raw.accG_x, accG_y: raw.accG_y, accG_z: raw.accG_z,
+                rot_alpha: raw.rot_alpha, rot_beta: raw.rot_beta, rot_gamma: raw.rot_gamma,
+                motion_interval: raw.motion_interval,
                 btn_G1: buttonStates.G1,
                 btn_G2: buttonStates.G2,
                 btn_G3: buttonStates.G3,
@@ -354,30 +267,8 @@
             });
         }
 
-        function updateVisualArrows() {
-            document.querySelectorAll('.arrow').forEach(el => el.classList.remove('active'));
-
-            const u = directionStates.UP;
-            const d = directionStates.DOWN;
-            const l = directionStates.LEFT;
-            const r = directionStates.RIGHT;
-
-            // 1. KÖZÉPÁLLÁS FIGYELÉSE: ha egyik irány sem aktív, a KÖZÉP világít
-            if (!u && !d && !l && !r) {
-                document.getElementById('dir-c').classList.add('active');
-                return;
-            }
-
-            // 2. Kombinációk kigyújtása
-            if (u && !l && !r) document.getElementById('dir-n').classList.add('active');
-            if (d && !l && !r) document.getElementById('dir-s').classList.add('active');
-            if (l && !u && !d) document.getElementById('dir-w').classList.add('active');
-            if (r && !u && !d) document.getElementById('dir-e').classList.add('active');
-            
-            if (u && r) document.getElementById('dir-ne').classList.add('active');
-            if (u && l) document.getElementById('dir-nw').classList.add('active');
-            if (d && r) document.getElementById('dir-se').classList.add('active');
-            if (d && l) document.getElementById('dir-sw').classList.add('active');
+        function csvVal(v) {
+            return (v === null || v === undefined) ? '' : v;
         }
 
         function saveCSVData() {
@@ -389,24 +280,31 @@
             const recordCount = telemetryData.length;
 
             let csvRows = [];
-            csvRows.push("Idobelyeg,Doles_Pitch,Gyorsulas_X,Kormany_Integral,FEL,LE,BAL,JOBB,G1_Kalib,G2_Start,G3_Save,G4_Action");
+            csvRows.push("Idobelyeg,Ori_Alpha,Ori_Beta,Ori_Gamma,Ori_Absolute,Acc_X,Acc_Y,Acc_Z,AccG_X,AccG_Y,AccG_Z,Rot_Alpha,Rot_Beta,Rot_Gamma,Motion_Interval,G1_Kalib,G2_Start,G3_Save,G4_Action");
 
             telemetryData.forEach(row => {
-                csvRows.push(`${row.timestamp},${row.pitch},${row.accelX},${row.steering},${row.dir_UP},${row.dir_DOWN},${row.dir_LEFT},${row.dir_RIGHT},${row.btn_G1},${row.btn_G2},${row.btn_G3},${row.btn_G4}`);
+                csvRows.push([
+                    row.timestamp,
+                    csvVal(row.ori_alpha), csvVal(row.ori_beta), csvVal(row.ori_gamma), csvVal(row.ori_absolute),
+                    csvVal(row.acc_x), csvVal(row.acc_y), csvVal(row.acc_z),
+                    csvVal(row.accG_x), csvVal(row.accG_y), csvVal(row.accG_z),
+                    csvVal(row.rot_alpha), csvVal(row.rot_beta), csvVal(row.rot_gamma),
+                    csvVal(row.motion_interval),
+                    row.btn_G1, row.btn_G2, row.btn_G3, row.btn_G4
+                ].join(','));
             });
 
             const csvString = csvRows.join("\n");
             const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-            
-            // Biztonságos letöltési link generálás
+
             const link = document.createElement("a");
             if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-                window.navigator.msSaveOrOpenBlob(blob, `fektetett_szenzor_adatok_${Date.now()}.csv`);
+                window.navigator.msSaveOrOpenBlob(blob, `nyers_szenzor_adatok_${Date.now()}.csv`);
                 alert(`Mentve: ${recordCount} rekord.`);
             } else {
                 const url = URL.createObjectURL(blob);
                 link.href = url;
-                link.setAttribute("download", `fektetett_szenzor_adatok_${Date.now()}.csv`);
+                link.setAttribute("download", `nyers_szenzor_adatok_${Date.now()}.csv`);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -414,9 +312,8 @@
                 alert(`Mentve: ${recordCount} rekord. Ha nem jelent meg letöltés, nézd meg a Letöltések mappát vagy a böngésző letöltés-sávját.`);
             }
         }
+
         // === HANGOS VEZETÉS ===
-        // Web Speech API alapú, magyar nyelvű utasítássorozat.
-        // Bármelyik gomb touchstart eseménye és időzítők vezérlik a lépéseket.
         let guideResolveButton = null;
         let guideWaitingForAny = false;
         let guideWaitingForKey = null;
@@ -469,9 +366,6 @@
             await speak("Tartsd a telefont egyenesen magad előtt, majd nyomd meg a kalibráló gombot.");
             await waitForButton('G1');
 
-            // TESZT MENTÉS: közvetlenül a kalibráció után elmentjük az addig gyűlt
-            // pár adatpontot, hogy azonnal látszódjon, tényleg fut-e a felvétel és
-            // működik-e a fájl letöltése, mielőtt végigmész a teljes gyakorlaton.
             await wait(500);
             await speak("Teszt mentés.");
             saveCSVData();
