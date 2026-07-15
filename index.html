@@ -189,6 +189,17 @@
                 e.preventDefault(); 
                 btn.classList.add('active'); 
                 buttonStates[key] = 1; 
+
+                // FONTOS: ha a hangos vezetés éppen "bármelyik gombot" vár, a szenzorindítást
+                // KÖZVETLENÜL itt, a touchstart eseményen belül hívjuk meg, nem egy await után.
+                // iOS-en a requestPermission() csak akkor működik, ha közvetlenül egy felhasználói
+                // gesztus (touch) hatására, ugyanabban a hívási láncban fut le - egy Promise/await
+                // utáni hívás már nem számít "felhasználói gesztusnak", és az engedélykérés elbukik,
+                // emiatt maradt üres a napló.
+                if (guideWaitingForAny) {
+                    startSensors();
+                }
+
                 notifyButtonPress(key); // jelzés a hangos vezetésnek, hogy megnyomtak egy gombot
                 // Az indítást és kalibrálást indíthatja touchstart
                 if (key !== 'G3' && callbackPress) callbackPress(); 
@@ -451,10 +462,6 @@
             await speak("Állj fel, legyen körülötted legalább egy méter szabad hely. Ha készen állsz, nyomj meg bármelyik gombot.");
             await waitForButton('any');
 
-            // Az első gombnyomás egyben elindítja a méréshez szükséges szenzorokat is,
-            // hogy a felvétel a kalibrálás pillanatától kezdve fusson.
-            startSensors();
-
             await speak("Tartsd a telefont egyenesen magad előtt, majd nyomd meg a kalibráló gombot.");
             await waitForButton('G1');
 
@@ -481,6 +488,9 @@
 
             await speak("Fordulj vissza középre.");
             await wait(2000);
+
+            await speak("Dőlj hátra a telefonnal.");
+            await wait(3000);
 
             await speak("Most kezdj el körözni.");
             await wait(6000);
