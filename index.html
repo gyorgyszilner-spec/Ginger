@@ -189,6 +189,7 @@
                 e.preventDefault(); 
                 btn.classList.add('active'); 
                 buttonStates[key] = 1; 
+                notifyButtonPress(key); // jelzés a hangos vezetésnek, hogy megnyomtak egy gombot
                 // Az indítást és kalibrálást indíthatja touchstart
                 if (key !== 'G3' && callbackPress) callbackPress(); 
             }, {passive: false});
@@ -205,32 +206,52 @@
         setupButton('btn-tl', 'G1', () => { pitchZero = currentPitch; }); 
         setupButton('btn-tr', 'G2', () => { startSensors(); });           
         setupButton('btn-bl', 'G3', () => { saveCSVData(); });            
-        setupButton('btn-br', 'G4', null);                                
-<!-- === MÁSODIK RÉSZ VÉGE === -->
+        setupButton('btn-br', 'G4', null);
 
+        // A hangos vezetés az oldal betöltésekor automatikusan elindul
+        window.addEventListener('load', () => {
+            if (!guideStarted) {
+                guideStarted = true;
+                runGuidedSequence();
+            }
+        });
 
-// === HARMADIK RÉSZ KEZDETE ===
+        // === HARMADIK RÉSZ KEZDETE ===
+        let recordIntervalId = null;
+        let guideStarted = false;
+
         async function startSensors() {
             if (isRunning) return;
-            
+
             try {
+                // JAVÍTÁS: az orientáció és a mozgás engedélyét külön, egymástól függetlenül kérjük le.
+                // Sok Android eszközön a DeviceMotionEvent.requestPermission EGYÁLTALÁN NEM LÉTEZIK,
+                // ezért az eredeti kód itt hibát dobott, isRunning sosem lett true,
+                // és emiatt a telemetryData mindig üres maradt (ezért nem lehetett menteni).
                 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     const orientationPerm = await DeviceOrientationEvent.requestPermission();
+                    if (orientationPerm !== 'granted') {
+                        alert("Szenzor hozzáférés elutasítva (dőlés)!");
+                        return;
+                    }
+                }
+
+                if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                     const motionPerm = await DeviceMotionEvent.requestPermission();
-                    if (orientationPerm !== 'granted' || motionPerm !== 'granted') {
-                        alert("Szenzor hozzáférés elutasítva!");
+                    if (motionPerm !== 'granted') {
+                        alert("Szenzor hozzáférés elutasítva (gyorsulás)!");
                         return;
                     }
                 }
 
                 window.addEventListener('deviceorientation', handleOrientation);
                 window.addEventListener('devicemotion', handleMotion);
-                
+
                 isRunning = true;
                 btnTR.classList.add('running');
                 btnTR.innerHTML = "G2<br><span>FUT...</span>";
 
-                setInterval(recordDataTick, 20);
+                recordIntervalId = setInterval(recordDataTick, 20);
 
             } catch (err) {
                 alert("Szenzor hiba: " + err);
@@ -378,7 +399,94 @@
                 setTimeout(() => URL.revokeObjectURL(url), 100);
             }
         }
+        // === HANGOS VEZETÉS ===
+        // Web Speech API alapú, magyar nyelvű utasítássorozat.
+        // Bármelyik gomb touchstart eseménye és időzítők vezérlik a lépéseket.
+        let guideResolveButton = null;
+        let guideWaitingForAny = false;
+        let guideWaitingForKey = null;
+
+        function speak(text) {
+            return new Promise((resolve) => {
+                if (!('speechSynthesis' in window)) { resolve(); return; }
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.lang = 'hu-HU';
+                utter.rate = 1;
+                utter.onend = resolve;
+                utter.onerror = resolve;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utter);
+            });
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function waitForButton(key) {
+            return new Promise((resolve) => {
+                if (key === 'any') {
+                    guideWaitingForAny = true;
+                    guideWaitingForKey = null;
+                } else {
+                    guideWaitingForAny = false;
+                    guideWaitingForKey = key;
+                }
+                guideResolveButton = () => {
+                    guideWaitingForAny = false;
+                    guideWaitingForKey = null;
+                    guideResolveButton = null;
+                    resolve();
+                };
+            });
+        }
+
+        function notifyButtonPress(key) {
+            if (guideResolveButton && (guideWaitingForAny || guideWaitingForKey === key)) {
+                guideResolveButton();
+            }
+        }
+
+        async function runGuidedSequence() {
+            await speak("Állj fel, legyen körülötted legalább egy méter szabad hely. Ha készen állsz, nyomj meg bármelyik gombot.");
+            await waitForButton('any');
+
+            // Az első gombnyomás egyben elindítja a méréshez szükséges szenzorokat is,
+            // hogy a felvétel a kalibrálás pillanatától kezdve fusson.
+            startSensors();
+
+            await speak("Tartsd a telefont egyenesen magad előtt, majd nyomd meg a kalibráló gombot.");
+            await waitForButton('G1');
+
+            await speak("Dőlj hátra a telefonnal.");
+            await wait(3000);
+
+            await speak("Állj egyenesen.");
+            await wait(2000);
+
+            await speak("Dőlj előre a telefonnal.");
+            await wait(3000);
+
+            await speak("Állj egyenesen.");
+            await wait(2000);
+
+            await speak("Fordulj balra, és ott állj meg.");
+            await wait(3000);
+
+            await speak("Fordulj vissza középre.");
+            await wait(2000);
+
+            await speak("Fordulj jobbra, és ott állj meg.");
+            await wait(3000);
+
+            await speak("Fordulj vissza középre.");
+            await wait(2000);
+
+            await speak("Most kezdj el körözni.");
+            await wait(6000);
+
+            await speak("Állj meg. Nyomd meg a CSV mentés gombot a napló elmentéséhez.");
+        }
     </script>
 </body>
 </html>
-<!-- === HARMADIK RÉSZ VÉGE === -->
