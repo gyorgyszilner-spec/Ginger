@@ -172,10 +172,8 @@
 
             // --- Kompasz-korrekció a giroszkóp-drift ellen ---
             // A kompasz (Ori_Alpha) csak akkor megbízható, ha nem vagyunk nagy dőlésben
-            // (a hátradőlés bebizonyítottan ~180 fokos hamis ugrást okoz a kompaszban,
-            // miközben a giroszkóp szerint gyakorlatilag nem történt forgás - lásd elemzés).
-            COMPASS_SAFE_TILT: 2.0,     // |deltaZ| ez alatt bízunk a kompaszban
-            COMPASS_CORRECTION_RATE: 0.02  // lassú, driftet kompenzáló húzás
+            // ÉS nem "flipped" (lásd Ori_Beta) ÉS a forgás épp nyugodt - lásd handleMotion.
+            COMPASS_SAFE_TILT: 2.0     // |deltaZ| ez alatt bízunk a kompaszban
         };
 
         // ============================================================
@@ -344,20 +342,20 @@
 
                     // Kompasz-korrekció: CSAK akkor bízunk az Ori_Alpha-ban, ha
                     //  (a) nem vagyunk nagy dőlésben, ÉS
-                    //  (b) az Ori_Beta NINCS a "becsapódott" (flipped) ágon.
-                    // FONTOS FELFEDEZÉS a mért adatokból: a nyugalmi "fektetett" pozíció
-                    // (gamma ≈ -90°) pontosan a deviceorientation Euler-szög szingularitásán
-                    // ül, ezért |Ori_Beta| tisztán szenzorzajtól is átbillenhet ~180°-ra -
-                    // MOZDULATLAN telefonnál is, a minták kb. 20%-ában! A deltaZ (dőlés-alapú)
-                    // kapu ezt nem mindig kapja el időben, mert a "flip" nem korrelál
-                    // szorosan a fizikai dőlés mértékével. Az Ori_Beta közvetlen ellenőrzése
-                    // viszont pontosan és azonnal jelzi, amikor Ori_Alpha nem megbízható.
+                    //  (b) az Ori_Beta NINCS a "becsapódott" (flipped) ágon, ÉS
+                    //  (c) a forgás épp NYUGODT (alacsony Rot_Alpha).
+                    // FONTOS: itt AZONNALI (nem fokozatos) visszaállítást használunk!
+                    // A korábbi lassú, exponenciális húzás ("* 0.02" minden tick-ben) azt
+                    // okozta, hogy ha a giro-integrál időközben nagyot tévedett, a lassú
+                    // visszahúzás időlegesen ÁTCSÚSZOTT a BAL/JOBB küszöbökön útközben,
+                    // és ott egy pillanatra hamis állapotot commitolt. Az azonnali resync
+                    // egyetlen lépésben ugrik a helyes értékre, nincs átmeneti "átcsúszás".
                     const isCompassFlipped = Math.abs(raw.ori_beta) > 150;
-                    if (raw.accG_z !== null && raw.ori_alpha !== null && !isCompassFlipped) {
+                    const isYawSettled = Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S;
+                    if (raw.accG_z !== null && raw.ori_alpha !== null && !isCompassFlipped && isYawSettled) {
                         const deltaZ = Math.abs(raw.accG_z - baselineAccGZ);
                         if (deltaZ < CONFIG.COMPASS_SAFE_TILT) {
-                            const compassDelta = wrap180(raw.ori_alpha - calibAlpha);
-                            yawRel += (compassDelta - yawRel) * CONFIG.COMPASS_CORRECTION_RATE;
+                            yawRel = wrap180(raw.ori_alpha - calibAlpha);
                         }
                     }
                 }
