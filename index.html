@@ -1,366 +1,383 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Digitális kimenet teszt</title>
-<style>
-  :root{
-    --bg: #12151a; --panel: #1b1f27; --panel-2: #232834; --line: #2c313d;
-    --text: #e8eaed; --text-dim: #8b93a3;
-    --accent: #4fd1a5; --warn: #e8a23d; --danger: #e05d5d;
-    --mono: 'SF Mono', 'Roboto Mono', Consolas, monospace;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html,body{ background:var(--bg); color:var(--text); height:100%; overflow:hidden;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-    -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
-  .hidden{ display:none !important; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Szenzoros Gamepad Teszt</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #121212;
+            font-family: sans-serif;
+            color: white;
+        }
 
-  /* ---------- intro (portrait-safe, shown before start) ---------- */
-  #screenIntro{ height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    text-align:center; gap:14px; padding:24px; }
-  #screenIntro h1{ font-size:19px; }
-  #screenIntro p{ color:var(--text-dim); font-size:13px; max-width:320px; line-height:1.5; }
-  #screenIntro .rotate-hint{ font-size:34px; }
-  button{ font-family:inherit; font-weight:600; border:none; border-radius:10px; cursor:pointer; }
-  .btn-primary{ background:var(--accent); color:#0a1210; font-size:15px; padding:14px 22px; }
+        /* Vezérlő felület elrendezése */
+        #gamepad-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+        }
 
-  /* ---------- main landscape layout ---------- */
-  #screenMain{ height:100vh; width:100vw; display:flex; flex-direction:column; }
+        /* Sarokgombok (Hüvelykujjhoz méretezve) */
+        .action-btn {
+            position: absolute;
+            width: 85px;
+            height: 85px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.15);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: white;
+            z-index: 10;
+        }
+        .action-btn.active {
+            background-color: rgba(233, 30, 99, 0.7);
+            border-color: #e91e63;
+            transform: scale(0.95);
+        }
+        #btn-tl { top: 20px; left: 20px; }
+        #btn-tr { top: 20px; right: 20px; }
+        #btn-bl { bottom: 20px; left: 20px; }
+        #btn-br { bottom: 20px; right: 20px; }
 
-  .topbar{ height:42px; flex:0 0 auto; display:flex; align-items:center; gap:10px;
-    padding:0 8px; border-bottom:1px solid var(--line); background:var(--panel); }
-  .topbar .title{ font-size:12px; font-weight:700; white-space:nowrap; }
-  .topbar .sens{ flex:1; display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-dim); }
-  .topbar input[type=range]{ flex:1; accent-color:var(--accent); height:18px; }
-  .topbar .sens-val{ font-family:var(--mono); width:32px; text-align:right; }
-  .topbar .icon-btn{ background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim);
-    font-size:10.5px; padding:6px 9px; border-radius:8px; }
-  .topbar .icon-btn.active{ color:var(--accent); border-color:var(--accent); }
+        /* Középső panel az infókkal és nyilakkal */
+        #center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+            z-index: 5;
+        }
 
-  .main-row{ flex:1; display:flex; overflow:hidden; }
+        /* Rendszergombok (Felül középen) */
+        .system-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .sys-btn {
+            padding: 10px 15px;
+            background-color: #333;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .sys-btn:active { background-color: #555; }
+        #save-btn { background-color: #2e7d32; border-color: #4caf50; }
 
-  .phys-btn{ flex:0 0 68px; display:flex; align-items:center; justify-content:center;
-    background:var(--panel-2); border:none; font-size:12px; font-weight:700; color:var(--text-dim);
-    writing-mode:vertical-rl; letter-spacing:0.05em; }
-  .phys-btn.pressed{ background:rgba(79,209,165,0.22); color:var(--accent); }
-  .phys-btn.left{ border-right:1px solid var(--line); }
-  .phys-btn.right{ border-left:1px solid var(--line); }
+        /* Élő telemetria kijelző */
+        #telemetry {
+            font-family: monospace;
+            font-size: 0.8rem;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            width: 100%;
+            margin-bottom: 20px;
+            text-align: left;
+        }
 
-  .gesture-area{ flex:1; overflow:auto; padding:6px; }
-  .gesture-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr));
-    grid-auto-rows:1fr; gap:5px; height:100%; }
-  .gesture-btn{ background:var(--panel-2); border:1.5px solid var(--line); border-radius:9px;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-    transition:background .07s, border-color .07s; padding:2px; }
-  .gesture-btn .icon{ font-size:17px; line-height:1; }
-  .gesture-btn .label{ font-size:9px; color:var(--text-dim); text-align:center; line-height:1.15; }
-  .gesture-btn.pressed{ background:rgba(79,209,165,0.2); border-color:var(--accent); }
-  .gesture-btn.pressed .label{ color:var(--text); font-weight:700; }
-
-  /* ---------- log overlay ---------- */
-  #logOverlay{ position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:20;
-    display:flex; align-items:center; justify-content:center; padding:14px; }
-  #logPanel{ background:var(--panel); border:1px solid var(--line); border-radius:12px;
-    width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; }
-  #logPanel .log-head{ display:flex; align-items:center; justify-content:space-between;
-    padding:8px 12px; border-bottom:1px solid var(--line); flex:0 0 auto; }
-  #logPanel .log-head h2{ font-size:12px; }
-  #logPanel .log-actions{ display:flex; gap:6px; }
-  #logPanel .log-actions button{ font-size:10.5px; padding:6px 10px; background:var(--panel-2);
-    color:var(--text-dim); border:1px solid var(--line); border-radius:7px; }
-  #logList{ flex:1; overflow-y:auto; font-family:var(--mono); font-size:10px; padding:6px 10px; }
-  .log-row{ padding:5px 0; border-bottom:1px solid var(--line); line-height:1.5; }
-  .log-row .id{ color:var(--text); font-weight:700; }
-  .log-row .down{ color:var(--accent); }
-  .log-row .up{ color:var(--warn); }
-  .log-row .params{ color:var(--text-dim); display:block; }
-  .empty{ color:var(--text-dim); font-size:12px; text-align:center; padding:20px 0; }
-</style>
+        /* 8-irányú Iránytű / Nyilak */
+        .compass-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 15px;
+            width: 220px;
+            height: 220px;
+        }
+        .arrow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            font-size: 1.4rem;
+            color: rgba(255,255,255,0.3);
+            transition: all 0.1s ease;
+        }
+        .arrow.active {
+            background-color: #00e676;
+            color: #121212;
+            font-weight: bold;
+            box-shadow: 0 0 15px #00e676;
+            transform: scale(1.05);
+        }
+        .center-dot {
+            background-color: transparent;
+            border: none;
+        }
+    </style>
 </head>
 <body>
+<!-- === ELSŐ RÉSZ VÉGE === -->
 
-<!-- ===================== INTRO ===================== -->
-<div id="screenIntro">
-  <div class="rotate-hint">📱↔️</div>
-  <h1>Digitális kimenet teszt</h1>
-  <p>Ezt a képernyőt <b>oldalra fordított (fekvő) telefonnal</b> használd,
-     ugyanúgy, ahogy a játékban tartanád magad előtt.</p>
-  <button class="btn-primary" id="permBtn">Szenzorok engedélyezése és indítás</button>
-  <p id="profileNote" style="font-size:11.5px;"></p>
-</div>
+<!-- === MÁSODIK RÉSZ KEZDETE === -->
+    <div id="gamepad-container">
+        <!-- Akciógombok -->
+        <div class="action-btn" id="btn-tl">G1</div>
+        <div class="action-btn" id="btn-tr">G2</div>
+        <div class="action-btn" id="btn-bl">G3</div>
+        <div class="action-btn" id="btn-br">G4</div>
 
-<!-- ===================== MAIN (landscape) ===================== -->
-<div id="screenMain" class="hidden">
-  <div class="topbar">
-    <span class="title">Kimenet</span>
-    <div class="sens">
-      <span>Laza</span>
-      <input type="range" id="sensSlider" min="20" max="80" value="45">
-      <span>Szigorú</span>
-      <span class="sens-val" id="sensVal">45%</span>
+        <!-- Középső vezérlő és visszajelző mag -->
+        <div id="center-panel">
+            <div class="system-controls">
+                <button class="sys-btn" id="start-btn">Engedélyezés & Indítás</button>
+                <button class="sys-btn" id="calib-btn">Kalibrálás</button>
+                <button class="sys-btn" id="save-btn">CSV Mentés</button>
+            </div>
+
+            <div id="telemetry">
+                Dőlés (Fel/Le): 0° (0)<br>
+                Gyorsulás Y: 0.00 m/s²<br>
+                Kormány-integrál: 0.00 (0)<br>
+                Rekordok száma: 0
+            </div>
+
+            <!-- 8-irányú vizuális mátrix -->
+            <div class="compass-grid">
+                <div class="arrow" id="dir-nw">↖</div>
+                <div class="arrow" id="dir-n">↑</div>
+                <div class="arrow" id="dir-ne">↗</div>
+                <div class="arrow" id="dir-w">←</div>
+                <div class="center-dot"></div>
+                <div class="arrow" id="dir-e">→</div>
+                <div class="arrow" id="dir-sw">↙</div>
+                <div class="arrow" id="dir-s">↓</div>
+                <div class="arrow" id="dir-se">↘</div>
+            </div>
+        </div>
     </div>
-    <button class="icon-btn" id="logToggleBtn">Log</button>
-  </div>
 
-  <div class="main-row">
-    <div class="phys-btn left" id="btnLeft">BAL</div>
+    <script>
+        // Logikai konfigurációs értékek (Finomhangolható)
+        const CONFIG = {
+            pitchDeadzone: 6,       // Fel-le dőlési holttér fokban
+            pitchMax: 25,           // Maximális dőlési határ fokban
+            accelDeadzone: 0.4,     // Gyorsulási holttér (m/s²), ez alatt kiszűrjük a zajt
+            steeringDecay: 0.95,    // Milyen gyorsan térjen vissza magától a kormány 0-ra, ha nincs semmi mozgás (0.95 = lassú lecsengés)
+            steeringMax: 10.0,      // A virtuális kormány maximális értéke kitérésnél
+            steeringThreshold: 1.5  // Ezen érték felett aktiválódik a Balra/Jobbra parancs
+        };
 
-    <div class="gesture-area">
-      <div class="gesture-grid" id="gestureGrid"></div>
-    </div>
+        // Állapotváltozók
+        let telemetryData = [];
+        let isRunning = false;
+        let pitchZero = 0;          // Kalibrált alaphelyzet (Fel-Le)
+        
+        // Aktuális szenzoros és számított állapotok
+        let currentPitch = 0;
+        let currentAccelY = 0;
+        let virtualSteering = 0;    // Az integrált jobbra-balra kormányértékünk
 
-    <div class="phys-btn right" id="btnRight">JOBB</div>
-  </div>
-</div>
+        // Gombok fizikai állapota (0 vagy 1)
+        let buttonStates = { G1: 0, G2: 0, G3: 0, G4: 0 };
+        // Irányok digitális állapota
+        let directionStates = { UP: 0, DOWN: 0, LEFT: 0, RIGHT: 0 };
 
-<!-- ===================== LOG OVERLAY ===================== -->
-<div id="logOverlay" class="hidden">
-  <div id="logPanel">
-    <div class="log-head">
-      <h2>Esemény-log — élő paraméterekkel</h2>
-      <div class="log-actions">
-        <button id="clearLogBtn">Törlés</button>
-        <button id="exportLogBtn">Export JSON</button>
-        <button id="closeLogBtn">Bezár</button>
-      </div>
-    </div>
-    <div id="logList"><div class="empty">Még nincs esemény.</div></div>
-  </div>
-</div>
+        // UI Elemek kigyűjtése
+        const telemetryEl = document.getElementById('telemetry');
+        const startBtn = document.getElementById('start-btn');
+        const calibBtn = document.getElementById('calib-btn');
+        const saveBtn = document.getElementById('save-btn');
 
-<script>
-(function(){
-  const CAL_KEY = 'motion_calibration_profile_v1';
+        // Gomb-érintések lekezelése (Multi-touch támogatással)
+        const setupButton = (elementId, key) => {
+            const btn = document.getElementById(elementId);
+            const activate = (e) => { e.preventDefault(); btn.classList.add('active'); buttonStates[key] = 1; };
+            const deactivate = (e) => { e.preventDefault(); btn.classList.remove('active'); buttonStates[key] = 0; };
+            
+            btn.addEventListener('touchstart', activate, {passive: false});
+            btn.addEventListener('touchend', deactivate, {passive: false});
+            btn.addEventListener('touchcancel', deactivate, {passive: false});
+        };
+        setupButton('btn-tl', 'G1');
+        setupButton('btn-tr', 'G2');
+        setupButton('btn-bl', 'G3');
+        setupButton('btn-br', 'G4');
 
-  const DEFAULT_PROFILE = {
-    baseline: { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 },
-    squat:     { dominantAxis:'rb', dominantSignedValue:35,  firstPeakSignedValue:35 },
-    reach:     { dominantAxis:'rb', dominantSignedValue:-100, firstPeakSignedValue:-100 },
-    sideLeft:  { dominantAxis:'ra', dominantSignedValue:28,  firstPeakSignedValue:28 },
-    sideRight: { dominantAxis:'rb', dominantSignedValue:50,  firstPeakSignedValue:50 },
-    stepBack:  { dominantAxis:'ay', dominantSignedValue:2.5, firstPeakSignedValue:2.5 },
-    leanLeft:  { dominantAxis:'rg', dominantSignedValue:-55, firstPeakSignedValue:-55 },
-    leanRight: { dominantAxis:'rg', dominantSignedValue:-65, firstPeakSignedValue:65 },
-    turnLeft:  { dominantAxis:'ra', dominantSignedValue:126, firstPeakSignedValue:126 },
-    turnRight: { dominantAxis:'ra', dominantSignedValue:178, firstPeakSignedValue:-178 },
-    twistLeft: { dominantAxis:'ra', dominantSignedValue:60,  firstPeakSignedValue:60 },
-    twistRight:{ dominantAxis:'ra', dominantSignedValue:60,  firstPeakSignedValue:-60 },
-    phonePush: { dominantAxis:'rb', dominantSignedValue:58,  firstPeakSignedValue:58 },
-    walk:      { peakAccelMag:2.3 },
-    run:       { peakAccelMag:6.5 }
-  };
+        // Szenzorok aktiválása és engedélykérés (iOS 13+ kompatibilis)
+        startBtn.addEventListener('click', async () => {
+            if (isRunning) return;
+            
+            try {
+                // iOS Engedélykérés
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const orientationPerm = await DeviceOrientationEvent.requestPermission();
+                    const motionPerm = await DeviceMotionEvent.requestPermission();
+                    if (orientationPerm !== 'granted' || motionPerm !== 'granted') {
+                        alert("Szenzor hozzáférés megtagadva!");
+                        return;
+                    }
+                }
 
-  const DIRECTIONAL_GESTURES = [
-    { id:'squat',      icon:'⬇️', label:'Guggolás' },
-    { id:'reach',      icon:'⬆️', label:'Felnyúlás' },
-    { id:'sideLeft',   icon:'⬅️', label:'Old.bal' },
-    { id:'sideRight',  icon:'➡️', label:'Old.jobb' },
-    { id:'stepBack',   icon:'⏪', label:'Hátra' },
-    { id:'leanLeft',   icon:'↩️', label:'Dőlés bal' },
-    { id:'leanRight',  icon:'↪️', label:'Dőlés jobb' },
-    { id:'turnLeft',   icon:'↺', label:'Ford. bal' },
-    { id:'turnRight',  icon:'↻', label:'Ford. jobb' },
-    { id:'twistLeft',  icon:'🔄', label:'Csav. bal' },
-    { id:'twistRight', icon:'🔃', label:'Csav. jobb' },
-    { id:'phonePush',  icon:'📱', label:'Kinyújt' },
-  ];
+                window.addEventListener('deviceorientation', handleOrientation);
+                window.addEventListener('devicemotion', handleMotion);
+                
+                isRunning = true;
+                startBtn.textContent = "Fut...";
+                startBtn.style.backgroundColor = "#1b5e20";
 
-  let profile = DEFAULT_PROFILE;
-  let usingRealProfile = false;
-  try{
-    const raw = localStorage.getItem(CAL_KEY);
-    if(raw){ profile = Object.assign({}, DEFAULT_PROFILE, JSON.parse(raw)); usingRealProfile = true; }
-  }catch(e){}
-  document.getElementById('profileNote').textContent = usingRealProfile
-    ? 'Kalibrációs profil betöltve ✓'
-    : 'Nincs mentett profil — közelítő alapértékekkel indul.';
+                // Adatrögzítő ciklus indítása (50Hz - 20ms-enként)
+                setInterval(recordDataTick, 20);
 
-  const gestureState = {};
-  DIRECTIONAL_GESTURES.forEach(function(g){ gestureState[g.id] = { pressed:false, smoothed:0 }; });
-  gestureState.walk = { pressed:false, smoothed:0 };
-  gestureState.run  = { pressed:false, smoothed:0 };
-  gestureState.__mag = { smoothed:0 };
+            } catch (err) {
+                alert("Hiba a szenzorok indításakor: " + err);
+            }
+        });
 
-  let sensitivity = 0.45;
-  const HYSTERESIS_RATIO = 0.6;
-  const SMOOTH_ALPHA = 0.35;
+        // Kalibrációs gomb: az aktuális dőlést teszi meg nullpontnak
+        calibBtn.addEventListener('click', () => {
+            pitchZero = currentPitch;
+        });
+// === MÁSODIK RÉSZ VÉGE ===
 
-  let baseline = { ax:0, ay:0, az:0, ra:0, rb:0, rg:0 };
-  if(profile.baseline){ baseline = Object.assign({}, baseline, profile.baseline); }
+// === HARMADIK RÉSZ KEZDETE ===
+        // Fel-Le dőlés figyelése (Device Orientation)
+        function handleOrientation(event) {
+            if (event.beta !== null) {
+                currentPitch = event.beta;
+            }
+        }
 
-  const eventLog = [];
-  const activeSince = {};
+        // Jobbra-Balra Gyorsulás figyelése és integrálása (Device Motion)
+        function handleMotion(event) {
+            let accY = event.accelerationWithoutGravity ? event.accelerationWithoutGravity.y : null;
+            
+            if (accY !== null) {
+                if (Math.abs(accY) < CONFIG.accelDeadzone) {
+                    currentAccelY = 0;
+                    virtualSteering *= CONFIG.steeringDecay;
+                } else {
+                    currentAccelY = accY;
+                    virtualSteering += (accY * 0.2); 
+                }
+                virtualSteering = Math.max(-CONFIG.steeringMax, Math.min(CONFIG.steeringMax, virtualSteering));
+            }
+        }
 
-  function handleMotion(e){
-    const acc = e.acceleration || e.accelerationIncludingGravity || {};
-    const rot = e.rotationRate || {};
-    const raw = {
-      ax: (acc.x||0) - baseline.ax, ay: (acc.y||0) - baseline.ay, az: (acc.z||0) - baseline.az,
-      ra: (rot.alpha||0) - baseline.ra, rb: (rot.beta||0) - baseline.rb, rg: (rot.gamma||0) - baseline.rg
-    };
+        // Logikai feldolgozás és adatrögzítés minden ciklusban (Tick)
+        function recordDataTick() {
+            if (!isRunning) return;
 
-    DIRECTIONAL_GESTURES.forEach(function(g){
-      const cal = profile[g.id];
-      if(!cal) return;
-      const axis = cal.dominantAxis || 'ax';
-      const calVal = (cal.firstPeakSignedValue !== undefined && cal.firstPeakSignedValue !== null)
-        ? cal.firstPeakSignedValue : cal.dominantSignedValue;
-      if(calVal === undefined || calVal === null) return;
+            // 1. FEL-LE DIGITÁLIS JEL FELDOLGOZÁSA
+            let relativePitch = currentPitch - pitchZero;
+            directionStates.UP = 0;
+            directionStates.DOWN = 0;
 
-      const liveRaw = raw[axis] !== undefined ? raw[axis] : 0;
-      const st = gestureState[g.id];
-      st.smoothed = st.smoothed + SMOOTH_ALPHA * (liveRaw - st.smoothed);
+            if (relativePitch > CONFIG.pitchDeadzone) {
+                directionStates.DOWN = 1;
+            } else if (relativePitch < -CONFIG.pitchDeadzone) {
+                directionStates.UP = 1;
+            }
 
-      const pressThr = calVal * sensitivity;
-      const releaseThr = pressThr * HYSTERESIS_RATIO;
+            // 2. JOBBRA-BALRA DIGITÁLIS JEL FELDOLGOZÁSA
+            directionStates.LEFT = 0;
+            directionStates.RIGHT = 0;
 
-      let shouldPress, shouldRelease;
-      if(calVal >= 0){ shouldPress = st.smoothed >= pressThr; shouldRelease = st.smoothed <= releaseThr; }
-      else{ shouldPress = st.smoothed <= pressThr; shouldRelease = st.smoothed >= releaseThr; }
+            if (virtualSteering > CONFIG.steeringThreshold) {
+                directionStates.RIGHT = 1;
+            } else if (virtualSteering < -CONFIG.steeringThreshold) {
+                directionStates.LEFT = 1;
+            }
 
-      const meta = { axis:axis, value: round3(st.smoothed), pressThr: round3(pressThr),
-                     releaseThr: round3(releaseThr), sensitivity: sensitivity };
+            // 3. UI FRISSÍTÉSE
+            updateVisualArrows();
 
-      if(!st.pressed && shouldPress){ setPressed(g.id, true, meta); }
-      else if(st.pressed && shouldRelease){ setPressed(g.id, false, meta); }
-    });
+            telemetryEl.innerHTML = `
+                Dőlés (Fel/Le): ${relativePitch.toFixed(1)}° (${directionStates.UP ? 'FEL' : directionStates.DOWN ? 'LE' : '0'})<br>
+                Gyorsulás Y: ${currentAccelY.toFixed(2)} m/s²<br>
+                Kormány-integrál: ${virtualSteering.toFixed(2)} (${directionStates.LEFT ? 'BAL' : directionStates.RIGHT ? 'JOBB' : '0'})<br>
+                Rekordok száma: ${telemetryData.length}
+            `;
 
-    const accelMag = Math.sqrt(raw.ax*raw.ax + raw.ay*raw.ay + raw.az*raw.az);
-    const stMag = gestureState.__mag;
-    stMag.smoothed = stMag.smoothed + SMOOTH_ALPHA * (accelMag - stMag.smoothed);
+            // 4. ADATRÖGZÍTÉS MEMÓRIÁBA
+            telemetryData.push({
+                timestamp: Date.now(),
+                pitch: relativePitch.toFixed(2),
+                accelY: currentAccelY.toFixed(2),
+                steering: virtualSteering.toFixed(2),
+                dir_UP: directionStates.UP,
+                dir_DOWN: directionStates.DOWN,
+                dir_LEFT: directionStates.LEFT,
+                dir_RIGHT: directionStates.RIGHT,
+                btn_G1: buttonStates.G1,
+                btn_G2: buttonStates.G2,
+                btn_G3: buttonStates.G3,
+                btn_G4: buttonStates.G4
+            });
+        }
 
-    const walkPeak = (profile.walk && profile.walk.peakAccelMag) || 2.3;
-    const runPeak = (profile.run && profile.run.peakAccelMag) || 6.5;
-    const runPress = runPeak * sensitivity, runRelease = runPress * HYSTERESIS_RATIO;
-    const walkPress = walkPeak * sensitivity, walkRelease = walkPress * HYSTERESIS_RATIO;
+        // 8-irányú vizuális nyilak vezérlése
+        function updateVisualArrows() {
+            document.querySelectorAll('.arrow').forEach(el => el.classList.remove('active'));
 
-    const runSt = gestureState.run;
-    const runMeta = { axis:'accelMag', value: round3(stMag.smoothed), pressThr: round3(runPress),
-                       releaseThr: round3(runRelease), sensitivity: sensitivity };
-    if(!runSt.pressed && stMag.smoothed >= runPress){ setPressed('run', true, runMeta); }
-    else if(runSt.pressed && stMag.smoothed <= runRelease){ setPressed('run', false, runMeta); }
+            const u = directionStates.UP;
+            const d = directionStates.DOWN;
+            const l = directionStates.LEFT;
+            const r = directionStates.RIGHT;
 
-    const walkSt = gestureState.walk;
-    const walkMeta = { axis:'accelMag', value: round3(stMag.smoothed), pressThr: round3(walkPress),
-                        releaseThr: round3(walkRelease), sensitivity: sensitivity };
-    const walkCandidate = stMag.smoothed >= walkPress && stMag.smoothed < runPress;
-    if(!walkSt.pressed && walkCandidate){ setPressed('walk', true, walkMeta); }
-    else if(walkSt.pressed && stMag.smoothed <= walkRelease){ setPressed('walk', false, walkMeta); }
-  }
+            if (u && !l && !r) document.getElementById('dir-n').classList.add('active');
+            if (d && !l && !r) document.getElementById('dir-s').classList.add('active');
+            if (l && !u && !d) document.getElementById('dir-w').classList.add('active');
+            if (r && !u && !d) document.getElementById('dir-e').classList.add('active');
+            
+            if (u && r) document.getElementById('dir-ne').classList.add('active');
+            if (u && l) document.getElementById('dir-nw').classList.add('active');
+            if (d && r) document.getElementById('dir-se').classList.add('active');
+            if (d && l) document.getElementById('dir-sw').classList.add('active');
+        }
 
-  function round3(n){ return Math.round(n*1000)/1000; }
+        // CSV Fájl generálása és letöltése
+        saveBtn.addEventListener('click', () => {
+            if (telemetryData.length === 0) {
+                alert("Nincs még rögzített adat!");
+                return;
+            }
 
-  function setPressed(id, pressed, meta){
-    gestureState[id].pressed = pressed;
-    logEvent(id, pressed ? 'down' : 'up', meta);
-    renderGestureButton(id);
-  }
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Idobelyeg,Doles_Pitch,Gyorsulas_Y,Kormany_Integral,FEL,LE,BAL,JOBB,Gomb_G1,Gomb_G2,Gomb_G3,Gomb_G4\n";
 
-  // ---------- permission & start ----------
-  document.getElementById('permBtn').addEventListener('click', function(){
-    const needsPerm = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
-    function start(){
-      window.addEventListener('devicemotion', handleMotion);
-      document.getElementById('screenIntro').classList.add('hidden');
-      document.getElementById('screenMain').classList.remove('hidden');
-      buildGestureGrid();
-    }
-    if(needsPerm){
-      DeviceMotionEvent.requestPermission().then(function(r){
-        if(r === 'granted'){ start(); } else{ alert('Szenzor-hozzáférés nélkül nem működik a teszt.'); }
-      }).catch(function(){ alert('Hiba az engedélykérésnél.'); });
-    }else{ start(); }
-  });
+            telemetryData.forEach(row => {
+                let line = `${row.timestamp},${row.pitch},${row.accelY},${row.steering},${row.dir_UP},${row.dir_DOWN},${row.dir_LEFT},${row.dir_RIGHT},${row.btn_G1},${row.btn_G2},${row.btn_G3},${row.btn_G4}`;
+                csvContent += line + "\n";
+            });
 
-  // ---------- sensitivity ----------
-  const sensSlider = document.getElementById('sensSlider');
-  const sensVal = document.getElementById('sensVal');
-  sensSlider.addEventListener('input', function(){
-    sensitivity = Number(sensSlider.value) / 100;
-    sensVal.textContent = sensSlider.value + '%';
-  });
-
-  // ---------- gesture grid ----------
-  const gestureGrid = document.getElementById('gestureGrid');
-  function buildGestureGrid(){
-    gestureGrid.innerHTML = '';
-    const all = DIRECTIONAL_GESTURES.concat([
-      { id:'walk', icon:'🚶', label:'Járás' },
-      { id:'run',  icon:'🏃', label:'Futás' }
-    ]);
-    all.forEach(function(g){
-      const el = document.createElement('div');
-      el.className = 'gesture-btn';
-      el.id = 'g_' + g.id;
-      el.innerHTML = '<span class="icon">' + g.icon + '</span><span class="label">' + g.label + '</span>';
-      gestureGrid.appendChild(el);
-    });
-  }
-  function renderGestureButton(id){
-    const el = document.getElementById('g_' + id);
-    if(el) el.classList.toggle('pressed', gestureState[id].pressed);
-  }
-
-  // ---------- physical buttons ----------
-  function wirePhysButton(el, id){
-    function down(ev){ ev.preventDefault(); el.classList.add('pressed'); logEvent(id, 'down', {}); }
-    function up(ev){ ev.preventDefault(); el.classList.remove('pressed'); logEvent(id, 'up', {}); }
-    el.addEventListener('pointerdown', down);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointerleave', up);
-  }
-  wirePhysButton(document.getElementById('btnLeft'), 'buttonLeft');
-  wirePhysButton(document.getElementById('btnRight'), 'buttonRight');
-
-  // ---------- log ----------
-  const logList = document.getElementById('logList');
-  function logEvent(id, phase, meta){
-    const now = performance.now();
-    let holdMs = null;
-    if(phase === 'down'){ activeSince[id] = now; }
-    else if(phase === 'up' && activeSince[id] !== undefined){ holdMs = now - activeSince[id]; }
-    eventLog.push(Object.assign({ id:id, phase:phase, t:Date.now(), holdMs:holdMs }, meta || {}));
-    renderLog();
-  }
-  function renderLog(){
-    const recent = eventLog.slice(-60).reverse();
-    if(recent.length === 0){ logList.innerHTML = '<div class="empty">Még nincs esemény.</div>'; return; }
-    logList.innerHTML = recent.map(function(e){
-      const time = new Date(e.t).toLocaleTimeString('hu-HU', { hour12:false }) + '.' + String(e.t % 1000).padStart(3,'0');
-      const holdText = e.holdMs !== null && e.holdMs !== undefined ? ' · tartás ' + (e.holdMs/1000).toFixed(2) + 's' : '';
-      const paramsText = (e.axis !== undefined)
-        ? 'tengely: ' + e.axis + ' · érték: ' + e.value + ' · le-küszöb: ' + e.pressThr +
-          ' · fel-küszöb: ' + e.releaseThr + ' · érzékenység: ' + Math.round((e.sensitivity||0)*100) + '%'
-        : '';
-      return '<div class="log-row"><span class="id">' + e.id + '</span> — ' +
-             '<span class="' + e.phase + '">' + (e.phase==='down'?'LE':'FEL') + '</span>' +
-             holdText + ' · ' + time +
-             (paramsText ? '<span class="params">' + paramsText + '</span>' : '') +
-             '</div>';
-    }).join('');
-  }
-
-  document.getElementById('logToggleBtn').addEventListener('click', function(){
-    document.getElementById('logOverlay').classList.remove('hidden');
-  });
-  document.getElementById('closeLogBtn').addEventListener('click', function(){
-    document.getElementById('logOverlay').classList.add('hidden');
-  });
-  document.getElementById('clearLogBtn').addEventListener('click', function(){
-    eventLog.length = 0; renderLog();
-  });
-  document.getElementById('exportLogBtn').addEventListener('click', function(){
-    const blob = new Blob([JSON.stringify(eventLog, null, 2)], { type:'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'digitalis_esemenynaplo.json';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-})();
-</script>
-
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `szenzor_teszt_adatok_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    </script>
 </body>
 </html>
+<!-- === HARMADIK RÉSZ VÉGE === -->
