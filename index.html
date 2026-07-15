@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v3 - NYERS ADAT</title>
+    <title>Fektetett Szenzoros Gamepad v4 - DIGITALIS ALLAPOTGEP</title>
     <style>
         * {
             box-sizing: border-box;
@@ -68,10 +68,10 @@
 
         #center-panel {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             justify-content: center;
             align-items: center;
-            gap: 8px;
+            gap: 20px;
             width: 100%;
             max-width: 640px;
             z-index: 5;
@@ -83,15 +83,46 @@
             background: rgba(0,0,0,0.6);
             padding: 10px;
             border-radius: 5px;
-            width: 300px;
+            width: 250px;
             text-align: left;
             border: 1px solid rgba(255,255,255,0.1);
             line-height: 1.5;
         }
         #telemetry b { color: #ffca28; }
-        #record-count {
+
+        .compass-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 8px;
+            width: 150px;
+            height: 150px;
+            flex-shrink: 0;
+        }
+        .arrow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            font-size: 1.2rem;
+            color: rgba(255,255,255,0.2);
+        }
+        .arrow.active {
+            background-color: #00e676;
+            color: #121212;
+            font-weight: bold;
+            box-shadow: 0 0 12px #00e676;
+        }
+        #dir-c {
+            background-color: rgba(255,255,255,0.02);
             font-size: 0.75rem;
-            opacity: 0.8;
+        }
+        #dir-c.active {
+            background-color: #2196f3;
+            color: white;
+            box-shadow: 0 0 12px #2196f3;
         }
     </style>
 </head>
@@ -104,16 +135,52 @@
 
         <div id="center-panel">
             <div id="telemetry">Szenzorok: Inaktív</div>
-            <div id="record-count">Rekordok: 0</div>
+            <div class="compass-grid">
+                <div class="arrow" id="dir-nw">↖</div>
+                <div class="arrow" id="dir-n">↑</div>
+                <div class="arrow" id="dir-ne">↗</div>
+                <div class="arrow" id="dir-w">←</div>
+                <div class="arrow" id="dir-c">KÖZÉP</div>
+                <div class="arrow" id="dir-e">→</div>
+                <div class="arrow" id="dir-sw">↙</div>
+                <div class="arrow" id="dir-s">↓</div>
+                <div class="arrow" id="dir-se">↘</div>
+            </div>
         </div>
     </div>
 
     <script>
-        // === NYERS SZENZOR NAPLÓZÓ ===
-        // Ez a verzió NEM próbál semmit értelmezni (nincs pitch/kormány logika),
-        // csak MINDEN elérhető szenzorértéket kimásol minden tick-ben, hogy utólag
-        // logikázhassuk ki, melyik oszlop mit jelent.
+        // ============================================================
+        // BEÁLLÍTÁSOK (a nyers-adat felvételek alapján kalibrálva)
+        // ============================================================
+        const CONFIG = {
+            // --- DŐLÉS (FEL/LE) tengely: AccG_Z alapján ---
+            // Mért nyugalmi zaj std ~0.11, valós kilengés -5.3..+8.4 m/s^2
+            TILT_ENTER: 2.5,      // ide kell dőlni, hogy FEL/LE aktiválódjon
+            TILT_EXIT: 1.0,       // ide kell visszatérni KÖZÉP-hez
 
+            // --- FORDULÁS (BAL/JOBB) tengely: giroszkóp-integrált relatív yaw ---
+            // Mért: BALRA ~+92 fok, JOBBRA ~-84 fok giro-integrállal
+            TURN_ENTER: 30,       // ide kell fordulni, hogy BAL/JOBB aktiválódjon (stabil be)
+            TURN_EXIT: 12,        // ide kell visszafordulni, hogy KÖZÉP legyen (stabil ki)
+
+            // --- "Megállás" (settle) detektálás a fordulás tengelyhez ---
+            // A user specifikáció szerint a stabil bal/jobb csak MEGÁLLÁS UTÁN aktiválódik,
+            // különben menet közben minden fokon átbillenne az állapot.
+            SETTLE_ROT_DEG_S: 8,  // ez alatti szögsebesség számít "megállt"-nak
+            SETTLE_MS: 150,       // ennyi ideig kell megállva maradni a váltáshoz
+
+            // --- Kompasz-korrekció a giroszkóp-drift ellen ---
+            // A kompasz (Ori_Alpha) csak akkor megbízható, ha nem vagyunk nagy dőlésben
+            // (a hátradőlés bebizonyítottan ~180 fokos hamis ugrást okoz a kompaszban,
+            // miközben a giroszkóp szerint gyakorlatilag nem történt forgás - lásd elemzés).
+            COMPASS_SAFE_TILT: 2.0,     // |deltaZ| ez alatt bízunk a kompaszban
+            COMPASS_CORRECTION_RATE: 0.02  // lassú, driftet kompenzáló húzás
+        };
+
+        // ============================================================
+        // ÁLLAPOT
+        // ============================================================
         let telemetryData = [];
         let isRunning = false;
         let recordIntervalId = null;
@@ -121,19 +188,37 @@
 
         let buttonStates = { G1: 0, G2: 0, G3: 0, G4: 0 };
 
-        // Legutóbb kapott nyers szenzorértékek (ezeket írjuk ki minden tick-ben)
+        // Nyers szenzorértékek
         let raw = {
-            ori_alpha: null, ori_beta: null, ori_gamma: null, ori_absolute: null,
+            ori_alpha: null, ori_beta: null, ori_gamma: null,
             acc_x: null, acc_y: null, acc_z: null,
             accG_x: null, accG_y: null, accG_z: null,
             rot_alpha: null, rot_beta: null, rot_gamma: null,
             motion_interval: null
         };
 
+        // Kalibráció
+        let isCalibrated = false;
+        let calibAlpha = 0;
+        let baselineAccGZ = 0;
+
+        // Számolt, folytonos yaw (giroszkóp-integrált, kompasszal korrigálva)
+        let yawRel = 0;
+        let lastMotionTime = null;
+
+        // Tengelyenkénti állapotgépek
+        let tiltState = 'KOZEP';   // 'KOZEP' | 'FEL' | 'LE'
+        let turnState = 'KOZEP';   // 'KOZEP' | 'BAL' | 'JOBB'
+        let turnCandidate = 'KOZEP';
+        let settleTimer = 0;
+        let lastTickTime = null;
+
         const telemetryEl = document.getElementById('telemetry');
-        const recordCountEl = document.getElementById('record-count');
         const btnTR = document.getElementById('btn-tr');
 
+        // ============================================================
+        // GOMBOK
+        // ============================================================
         const setupButton = (elementId, key, callbackPress) => {
             const btn = document.getElementById(elementId);
 
@@ -142,8 +227,6 @@
                 btn.classList.add('active');
                 buttonStates[key] = 1;
 
-                // Ha a hangos vezetés éppen "bármelyik gombot" vár, a szenzorindítást
-                // KÖZVETLENÜL itt, a touchstart eseményen belül hívjuk meg (iOS user-gesture!)
                 if (guideWaitingForAny) {
                     startSensors();
                 }
@@ -160,7 +243,7 @@
             }, {passive: false});
         };
 
-        setupButton('btn-tl', 'G1', null);
+        setupButton('btn-tl', 'G1', () => { calibrate(); });
         setupButton('btn-tr', 'G2', () => { startSensors(); });
         setupButton('btn-bl', 'G3', () => { saveCSVData(); });
         setupButton('btn-br', 'G4', null);
@@ -172,6 +255,20 @@
             }
         });
 
+        function calibrate() {
+            calibAlpha = raw.ori_alpha || 0;
+            baselineAccGZ = raw.accG_z || 0;
+            yawRel = 0;
+            turnState = 'KOZEP';
+            turnCandidate = 'KOZEP';
+            tiltState = 'KOZEP';
+            settleTimer = 0;
+            isCalibrated = true;
+        }
+
+        // ============================================================
+        // SZENZOROK INDÍTÁSA
+        // ============================================================
         async function startSensors() {
             if (isRunning) return;
 
@@ -209,7 +306,13 @@
             raw.ori_alpha = event.alpha;
             raw.ori_beta = event.beta;
             raw.ori_gamma = event.gamma;
-            raw.ori_absolute = event.absolute;
+        }
+
+        function wrap180(deg) {
+            let d = deg % 360;
+            if (d > 180) d -= 360;
+            if (d < -180) d += 360;
+            return d;
         }
 
         function handleMotion(event) {
@@ -229,6 +332,97 @@
                 raw.rot_gamma = event.rotationRate.gamma;
             }
             raw.motion_interval = event.interval;
+
+            // --- Folytonos yaw: giroszkóp-integrálás ---
+            // Ez a lépés kerüli meg a kompasz gimbal-lock-os ugrásait, mert nyers
+            // szögsebességet integrálunk, nem a levezetett (és instabil) Ori_Alpha-t olvassuk.
+            const now = performance.now();
+            if (isCalibrated && lastMotionTime !== null && raw.rot_alpha !== null) {
+                let dt = (now - lastMotionTime) / 1000;
+                if (dt > 0 && dt < 0.5) {
+                    yawRel += raw.rot_alpha * dt;
+
+                    // Kompasz-korrekció: CSAK akkor bízunk az Ori_Alpha-ban, ha nem vagyunk
+                    // nagy dőlésben (a hátradőlés bizonyítottan összekeveri a kompaszt).
+                    if (raw.accG_z !== null && raw.ori_alpha !== null) {
+                        const deltaZ = Math.abs(raw.accG_z - baselineAccGZ);
+                        if (deltaZ < CONFIG.COMPASS_SAFE_TILT) {
+                            const compassDelta = wrap180(raw.ori_alpha - calibAlpha);
+                            yawRel += (compassDelta - yawRel) * CONFIG.COMPASS_CORRECTION_RATE;
+                        }
+                    }
+                }
+            }
+            lastMotionTime = now;
+        }
+
+        // ============================================================
+        // ÁLLAPOTGÉPEK (Schmitt-trigger + megállás-detektálás)
+        // ============================================================
+        function updateTiltState() {
+            if (!isCalibrated || raw.accG_z === null) return;
+            const deltaZ = raw.accG_z - baselineAccGZ;
+
+            if (tiltState === 'KOZEP') {
+                if (deltaZ > CONFIG.TILT_ENTER) tiltState = 'FEL';
+                else if (deltaZ < -CONFIG.TILT_ENTER) tiltState = 'LE';
+            } else if (tiltState === 'FEL') {
+                if (deltaZ < CONFIG.TILT_EXIT) tiltState = 'KOZEP';
+            } else if (tiltState === 'LE') {
+                if (deltaZ > -CONFIG.TILT_EXIT) tiltState = 'KOZEP';
+            }
+        }
+
+        function updateTurnState(dtMs) {
+            if (!isCalibrated || raw.rot_alpha === null) return;
+
+            // 1. Kiszámoljuk, mi lenne az állapot a jelenlegi yawRel alapján (hiszterézissel)
+            if (turnState === 'KOZEP') {
+                if (yawRel > CONFIG.TURN_ENTER) turnCandidate = 'BAL';
+                else if (yawRel < -CONFIG.TURN_ENTER) turnCandidate = 'JOBB';
+                else turnCandidate = 'KOZEP';
+            } else if (turnState === 'BAL') {
+                turnCandidate = (yawRel < CONFIG.TURN_EXIT) ? 'KOZEP' : 'BAL';
+            } else if (turnState === 'JOBB') {
+                turnCandidate = (yawRel > -CONFIG.TURN_EXIT) ? 'KOZEP' : 'JOBB';
+            }
+
+            // 2. "Megállás" detektálás: csak akkor engedjük érvényesülni a váltást,
+            // ha a forgási sebesség egy ideje alacsony (ez a "utáni megállás" feltétel).
+            if (Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S) {
+                settleTimer += dtMs;
+            } else {
+                settleTimer = 0;
+            }
+
+            if (turnCandidate !== turnState && settleTimer >= CONFIG.SETTLE_MS) {
+                turnState = turnCandidate;
+            }
+        }
+
+        function combinedStateId() {
+            // 9 állapot: KOZEP + 4 irany + 4 atlo
+            if (tiltState === 'KOZEP' && turnState === 'KOZEP') return 'KOZEP';
+            if (tiltState === 'FEL' && turnState === 'KOZEP') return 'FEL';
+            if (tiltState === 'LE' && turnState === 'KOZEP') return 'LE';
+            if (tiltState === 'KOZEP' && turnState === 'BAL') return 'BAL';
+            if (tiltState === 'KOZEP' && turnState === 'JOBB') return 'JOBB';
+            if (tiltState === 'FEL' && turnState === 'BAL') return 'FEL_BAL';
+            if (tiltState === 'FEL' && turnState === 'JOBB') return 'FEL_JOBB';
+            if (tiltState === 'LE' && turnState === 'BAL') return 'LE_BAL';
+            if (tiltState === 'LE' && turnState === 'JOBB') return 'LE_JOBB';
+        }
+
+        function updateVisualArrows(stateId) {
+            document.querySelectorAll('.arrow').forEach(el => el.classList.remove('active'));
+            const map = {
+                'KOZEP': 'dir-c', 'FEL': 'dir-n', 'LE': 'dir-s',
+                'BAL': 'dir-w', 'JOBB': 'dir-e',
+                'FEL_BAL': 'dir-nw', 'FEL_JOBB': 'dir-ne',
+                'LE_BAL': 'dir-sw', 'LE_JOBB': 'dir-se'
+            };
+            const id = map[stateId];
+            if (id) document.getElementById(id).classList.add('active');
         }
 
         function fmt(v, d) {
@@ -236,30 +430,45 @@
             return v.toFixed(d === undefined ? 1 : d);
         }
 
+        // ============================================================
+        // FŐ CIKLUS
+        // ============================================================
         function recordDataTick() {
             if (!isRunning) return;
 
+            const now = performance.now();
+            const dtMs = lastTickTime !== null ? (now - lastTickTime) : 20;
+            lastTickTime = now;
+
+            updateTiltState();
+            updateTurnState(dtMs);
+            const stateId = combinedStateId();
+            updateVisualArrows(stateId);
+
             telemetryEl.innerHTML = `
-                Szenzorok: <b>FUT</b><br>
-                --- deviceorientation ---<br>
-                alpha: ${fmt(raw.ori_alpha)}&deg;  beta: ${fmt(raw.ori_beta)}&deg;  gamma: ${fmt(raw.ori_gamma)}&deg;<br>
-                --- acceleration (gravity nélkül) ---<br>
-                x: ${fmt(raw.acc_x, 2)}  y: ${fmt(raw.acc_y, 2)}  z: ${fmt(raw.acc_z, 2)} m/s&sup2;<br>
-                --- accelerationIncludingGravity ---<br>
-                x: ${fmt(raw.accG_x, 2)}  y: ${fmt(raw.accG_y, 2)}  z: ${fmt(raw.accG_z, 2)} m/s&sup2;<br>
-                --- rotationRate ---<br>
-                alpha: ${fmt(raw.rot_alpha)}  beta: ${fmt(raw.rot_beta)}  gamma: ${fmt(raw.rot_gamma)} &deg;/s<br>
-                motion interval: ${fmt(raw.motion_interval, 1)} ms
+                Szenzorok: <b>FUT</b>  Rekordok: ${telemetryData.length}<br>
+                Kalibrálva: ${isCalibrated ? 'igen' : '<b>nem</b>'}<br>
+                --- nyers ---<br>
+                alpha: ${fmt(raw.ori_alpha)}&deg;  AccG_Z: ${fmt(raw.accG_z,2)}<br>
+                Rot_Alpha: ${fmt(raw.rot_alpha)}&deg;/s<br>
+                --- számolt ---<br>
+                yawRel: <b>${fmt(yawRel)}</b>&deg;<br>
+                Dőlés állapot: <b>${tiltState}</b><br>
+                Fordulás állapot: <b>${turnState}</b><br>
+                Kombinált: <b>${stateId}</b>
             `;
-            recordCountEl.textContent = `Rekordok: ${telemetryData.length}`;
 
             telemetryData.push({
                 timestamp: Date.now(),
-                ori_alpha: raw.ori_alpha, ori_beta: raw.ori_beta, ori_gamma: raw.ori_gamma, ori_absolute: raw.ori_absolute,
+                ori_alpha: raw.ori_alpha, ori_beta: raw.ori_beta, ori_gamma: raw.ori_gamma,
                 acc_x: raw.acc_x, acc_y: raw.acc_y, acc_z: raw.acc_z,
                 accG_x: raw.accG_x, accG_y: raw.accG_y, accG_z: raw.accG_z,
                 rot_alpha: raw.rot_alpha, rot_beta: raw.rot_beta, rot_gamma: raw.rot_gamma,
                 motion_interval: raw.motion_interval,
+                yaw_rel: yawRel,
+                tilt_state: tiltState,
+                turn_state: turnState,
+                combined_state: stateId,
                 btn_G1: buttonStates.G1,
                 btn_G2: buttonStates.G2,
                 btn_G3: buttonStates.G3,
@@ -280,16 +489,18 @@
             const recordCount = telemetryData.length;
 
             let csvRows = [];
-            csvRows.push("Idobelyeg,Ori_Alpha,Ori_Beta,Ori_Gamma,Ori_Absolute,Acc_X,Acc_Y,Acc_Z,AccG_X,AccG_Y,AccG_Z,Rot_Alpha,Rot_Beta,Rot_Gamma,Motion_Interval,G1_Kalib,G2_Start,G3_Save,G4_Action");
+            csvRows.push("Idobelyeg,Ori_Alpha,Ori_Beta,Ori_Gamma,Acc_X,Acc_Y,Acc_Z,AccG_X,AccG_Y,AccG_Z,Rot_Alpha,Rot_Beta,Rot_Gamma,Motion_Interval,Yaw_Rel,Tilt_State,Turn_State,Combined_State,G1_Kalib,G2_Start,G3_Save,G4_Action");
 
             telemetryData.forEach(row => {
                 csvRows.push([
                     row.timestamp,
-                    csvVal(row.ori_alpha), csvVal(row.ori_beta), csvVal(row.ori_gamma), csvVal(row.ori_absolute),
+                    csvVal(row.ori_alpha), csvVal(row.ori_beta), csvVal(row.ori_gamma),
                     csvVal(row.acc_x), csvVal(row.acc_y), csvVal(row.acc_z),
                     csvVal(row.accG_x), csvVal(row.accG_y), csvVal(row.accG_z),
                     csvVal(row.rot_alpha), csvVal(row.rot_beta), csvVal(row.rot_gamma),
                     csvVal(row.motion_interval),
+                    csvVal(row.yaw_rel && row.yaw_rel.toFixed ? row.yaw_rel.toFixed(2) : row.yaw_rel),
+                    row.tilt_state, row.turn_state, row.combined_state,
                     row.btn_G1, row.btn_G2, row.btn_G3, row.btn_G4
                 ].join(','));
             });
@@ -299,12 +510,12 @@
 
             const link = document.createElement("a");
             if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-                window.navigator.msSaveOrOpenBlob(blob, `nyers_szenzor_adatok_${Date.now()}.csv`);
+                window.navigator.msSaveOrOpenBlob(blob, `allapotgep_adatok_${Date.now()}.csv`);
                 alert(`Mentve: ${recordCount} rekord.`);
             } else {
                 const url = URL.createObjectURL(blob);
                 link.href = url;
-                link.setAttribute("download", `nyers_szenzor_adatok_${Date.now()}.csv`);
+                link.setAttribute("download", `allapotgep_adatok_${Date.now()}.csv`);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -313,7 +524,9 @@
             }
         }
 
-        // === HANGOS VEZETÉS ===
+        // ============================================================
+        // HANGOS VEZETÉS
+        // ============================================================
         let guideResolveButton = null;
         let guideWaitingForAny = false;
         let guideWaitingForKey = null;
@@ -393,6 +606,12 @@
             await wait(3000);
 
             await speak("Fordulj vissza középre.");
+            await wait(2000);
+
+            await speak("Most fordulj balra, és közben dőlj hátra is - ez az átlós állapot tesztje.");
+            await wait(4000);
+
+            await speak("Állj vissza középre.");
             await wait(2000);
 
             await speak("Dőlj hátra a telefonnal.");
