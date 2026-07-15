@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v7 - PLAUZIBILITAS-SZURO</title>
+    <title>Fektetett Szenzoros Gamepad v8 - 5-ALLAPOT</title>
     <style>
         * {
             box-sizing: border-box;
@@ -141,7 +141,7 @@
     </style>
 </head>
 <body>
-    <div id="version-badge">v7 - PLAUZIBILITAS-SZURO</div>
+    <div id="version-badge">v8 - 5-ALLAPOT</div>
     <div id="gamepad-container">
         <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
         <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
@@ -173,7 +173,7 @@
         // A telefonon a képernyő tetején látszó jelzésből ellenőrizhető,
         // hogy a legfrissebb verzió töltődött-e be (cache-probléma esetén nem).
         // ============================================================
-        const APP_VERSION = "v7 - PLAUZIBILITAS-SZURO";
+        const APP_VERSION = "v8 - 5-ALLAPOT";
         document.getElementById('version-badge').textContent = APP_VERSION;
         document.title = "Fektetett Szenzoros Gamepad " + APP_VERSION;
         console.log("Betöltve:", APP_VERSION);
@@ -505,16 +505,13 @@
         }
 
         function combinedStateId() {
-            // 9 állapot: KOZEP + 4 irany + 4 atlo
-            if (tiltState === 'KOZEP' && turnState === 'KOZEP') return 'KOZEP';
-            if (tiltState === 'FEL' && turnState === 'KOZEP') return 'FEL';
-            if (tiltState === 'LE' && turnState === 'KOZEP') return 'LE';
-            if (tiltState === 'KOZEP' && turnState === 'BAL') return 'BAL';
-            if (tiltState === 'KOZEP' && turnState === 'JOBB') return 'JOBB';
-            if (tiltState === 'FEL' && turnState === 'BAL') return 'FEL_BAL';
-            if (tiltState === 'FEL' && turnState === 'JOBB') return 'FEL_JOBB';
-            if (tiltState === 'LE' && turnState === 'BAL') return 'LE_BAL';
-            if (tiltState === 'LE' && turnState === 'JOBB') return 'LE_JOBB';
+            // 5 állapot: KOZEP + FEL/LE/BAL/JOBB. Az átlósokat kivettük - ha valamiért
+            // mindkét tengely aktív egyszerre, a fordulás (BAL/JOBB) élvez elsőbbséget.
+            if (turnState === 'BAL') return 'BAL';
+            if (turnState === 'JOBB') return 'JOBB';
+            if (tiltState === 'FEL') return 'FEL';
+            if (tiltState === 'LE') return 'LE';
+            return 'KOZEP';
         }
 
         function updateVisualArrows(stateId) {
