@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v4 - DIGITALIS ALLAPOTGEP</title>
+    <title>Fektetett Szenzoros Gamepad v7 - PLAUZIBILITAS-SZURO</title>
     <style>
         * {
             box-sizing: border-box;
@@ -124,9 +124,24 @@
             color: white;
             box-shadow: 0 0 12px #2196f3;
         }
+        #version-badge {
+            position: fixed;
+            top: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #ffca28;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 10px;
+            border-radius: 4px;
+            z-index: 100;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
+    <div id="version-badge">v7 - PLAUZIBILITAS-SZURO</div>
     <div id="gamepad-container">
         <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
         <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
@@ -153,6 +168,17 @@
         // ============================================================
         // BEÁLLÍTÁSOK (a nyers-adat felvételek alapján kalibrálva)
         // ============================================================
+        // ============================================================
+        // VERZIÓSZÁM - EZT NÖVELD MINDEN MÓDOSÍTÁSNÁL!
+        // A telefonon a képernyő tetején látszó jelzésből ellenőrizhető,
+        // hogy a legfrissebb verzió töltődött-e be (cache-probléma esetén nem).
+        // ============================================================
+        const APP_VERSION = "v7 - PLAUZIBILITAS-SZURO";
+        document.getElementById('version-badge').textContent = APP_VERSION;
+        document.title = "Fektetett Szenzoros Gamepad " + APP_VERSION;
+        console.log("Betöltve:", APP_VERSION);
+        document.getElementById('telemetry').textContent = "Szenzorok: Inaktív (" + APP_VERSION + ")";
+
         const CONFIG = {
             // --- DŐLÉS (FEL/LE) tengely: AccG_Z alapján ---
             // Mért nyugalmi zaj std ~0.11, valós kilengés -5.3..+8.4 m/s^2
@@ -163,6 +189,12 @@
             // Mért: BALRA ~+92 fok, JOBBRA ~-84 fok giro-integrállal
             TURN_ENTER: 30,       // ide kell fordulni, hogy BAL/JOBB aktiválódjon (stabil be)
             TURN_EXIT: 12,        // ide kell visszafordulni, hogy KÖZÉP legyen (stabil ki)
+
+            // Fizikai valószerűség-küszöb: körözés nélkül sosem fordulunk el ennél
+            // többet a kalibrált középponthoz képest. Ha a kompasz ennél nagyobb
+            // elmozdulást "mondana", az garantáltan a flip-hiba (~180 fok), nem
+            // valós mozgás - egyszerűen eldobjuk, nem engedjük korrigálni a yawRel-t.
+            PLAUSIBLE_MAX_DELTA: 100,
 
             // --- "Megállás" (settle) detektálás a fordulás tengelyhez ---
             // A user specifikáció szerint a stabil bal/jobb csak MEGÁLLÁS UTÁN aktiválódik,
@@ -253,9 +285,67 @@
             }
         });
 
+        // Rövid gördülő puffer a nyers alpha/beta/accG_Z értékekhez.
+        // CÉL: se a kalibráció, se a "flipped" detektálás ne egyetlen pillanatnyi,
+        // esetlegesen zajos mintára épüljön - inkább az utolsó néhány minta
+        // MEDIÁNJÁRA/átlagára, ami kiszűri az egyszeri zajtüskéket.
+        const HISTORY_LEN = 7;
+        let historyAlpha = [];
+        let historyBeta = [];
+        let historyAccGZ = [];
+
+        function median(arr) {
+            if (arr.length === 0) return 0;
+            const sorted = [...arr].sort((a,b) => a-b);
+            return sorted[Math.floor(sorted.length/2)];
+        }
+
+        function pushHistory() {
+            if (raw.ori_alpha !== null) {
+                historyAlpha.push(raw.ori_alpha);
+                if (historyAlpha.length > HISTORY_LEN) historyAlpha.shift();
+            }
+            if (raw.ori_beta !== null) {
+                historyBeta.push(raw.ori_beta);
+                if (historyBeta.length > HISTORY_LEN) historyBeta.shift();
+            }
+            if (raw.accG_z !== null) {
+                historyAccGZ.push(raw.accG_z);
+                if (historyAccGZ.length > HISTORY_LEN) historyAccGZ.shift();
+            }
+        }
+
+        // Szűrt "vagyunk-e a flipped ágon" döntés: a legutóbbi minták MEDIÁNJÁRA
+        // épül, nem egyetlen pillanatnyi mintára - egy magányos zajtüske így nem
+        // tud téves flip-detektálást (vagy annak elmulasztását) okozni.
+        function isFlippedFiltered() {
+            return Math.abs(median(historyBeta)) > 150;
+        }
+
         function calibrate() {
-            calibAlpha = raw.ori_alpha || 0;
-            baselineAccGZ = raw.accG_z || 0;
+            // Szűrt kalibráció: az utolsó néhány (max HISTORY_LEN) mintából
+            // csak a NEM flipped mintákat vesszük figyelembe, és azok mediánját
+            // használjuk referenciának - nem egyetlen, esetlegesen zajos leolvasást.
+            const goodAlphas = [];
+            const goodAccGZ = [];
+            for (let i = 0; i < historyBeta.length; i++) {
+                if (Math.abs(historyBeta[i]) <= 150) {
+                    if (historyAlpha[i] !== undefined) goodAlphas.push(historyAlpha[i]);
+                    if (historyAccGZ[i] !== undefined) goodAccGZ.push(historyAccGZ[i]);
+                }
+            }
+
+            let a;
+            if (goodAlphas.length > 0) {
+                a = median(goodAlphas);
+            } else {
+                // Az összes puffer-minta flipped volt (pl. épp villódzás közepén
+                // nyomtuk meg a gombot) - normalizáljuk vissza a normál ágra.
+                a = ((raw.ori_alpha || 0) + 180) % 360;
+            }
+
+            calibAlpha = a;
+            baselineAccGZ = goodAccGZ.length > 0 ? median(goodAccGZ) : (raw.accG_z || 0);
             yawRel = 0;
             turnState = 'KOZEP';
             turnCandidate = 'KOZEP';
@@ -304,6 +394,7 @@
             raw.ori_alpha = event.alpha;
             raw.ori_beta = event.beta;
             raw.ori_gamma = event.gamma;
+            pushHistory();
         }
 
         function wrap180(deg) {
@@ -330,6 +421,7 @@
                 raw.rot_gamma = event.rotationRate.gamma;
             }
             raw.motion_interval = event.interval;
+            pushHistory();
 
             // --- Folytonos yaw: giroszkóp-integrálás ---
             // Ez a lépés kerüli meg a kompasz gimbal-lock-os ugrásait, mert nyers
@@ -342,20 +434,25 @@
 
                     // Kompasz-korrekció: CSAK akkor bízunk az Ori_Alpha-ban, ha
                     //  (a) nem vagyunk nagy dőlésben, ÉS
-                    //  (b) az Ori_Beta NINCS a "becsapódott" (flipped) ágon, ÉS
-                    //  (c) a forgás épp NYUGODT (alacsony Rot_Alpha).
-                    // FONTOS: itt AZONNALI (nem fokozatos) visszaállítást használunk!
-                    // A korábbi lassú, exponenciális húzás ("* 0.02" minden tick-ben) azt
-                    // okozta, hogy ha a giro-integrál időközben nagyot tévedett, a lassú
-                    // visszahúzás időlegesen ÁTCSÚSZOTT a BAL/JOBB küszöbökön útközben,
-                    // és ott egy pillanatra hamis állapotot commitolt. Az azonnali resync
-                    // egyetlen lépésben ugrik a helyes értékre, nincs átmeneti "átcsúszás".
-                    const isCompassFlipped = Math.abs(raw.ori_beta) > 150;
+                    //  (b) az Ori_Beta (SZŰRT, mediánból) NINCS a "flipped" ágon, ÉS
+                    //  (c) a forgás épp NYUGODT (alacsony Rot_Alpha), ÉS
+                    //  (d) a kapott elfordulás FIZIKAILAG ÉSSZERŰ (nem nagyobb, mint
+                    //      amit körözés nélkül valaha is elérhetnénk).
+                    // A (d) pont a legegyszerűbb és legerősebb védelem: nem kell
+                    // kitalálnunk, HOGY ÉS MIÉRT romlott el a kompasz - ha az eredmény
+                    // fizikailag képtelen (pl. 178 fokos "fordulat" körözés nélkül),
+                    // egyszerűen eldobjuk, és a giroszkóp viszi tovább az értéket.
+                    const isCompassFlipped = isFlippedFiltered();
                     const isYawSettled = Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S;
                     if (raw.accG_z !== null && raw.ori_alpha !== null && !isCompassFlipped && isYawSettled) {
-                        const deltaZ = Math.abs(raw.accG_z - baselineAccGZ);
+                        const deltaZ = Math.abs(median(historyAccGZ) - baselineAccGZ);
                         if (deltaZ < CONFIG.COMPASS_SAFE_TILT) {
-                            yawRel = wrap180(raw.ori_alpha - calibAlpha);
+                            const compassDelta = wrap180(raw.ori_alpha - calibAlpha);
+                            if (Math.abs(compassDelta) < CONFIG.PLAUSIBLE_MAX_DELTA) {
+                                yawRel = compassDelta;
+                            }
+                            // else: eldobjuk - a kompasz "hülyeséget" mondott, a giro-
+                            // integrál folytatja a maga útját tovább, korrekció nélkül.
                         }
                     }
                 }
@@ -367,8 +464,8 @@
         // ÁLLAPOTGÉPEK (Schmitt-trigger + megállás-detektálás)
         // ============================================================
         function updateTiltState() {
-            if (!isCalibrated || raw.accG_z === null) return;
-            const deltaZ = raw.accG_z - baselineAccGZ;
+            if (!isCalibrated || historyAccGZ.length === 0) return;
+            const deltaZ = median(historyAccGZ) - baselineAccGZ;
 
             if (tiltState === 'KOZEP') {
                 if (deltaZ > CONFIG.TILT_ENTER) tiltState = 'FEL';
