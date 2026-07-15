@@ -342,9 +342,18 @@
                 if (dt > 0 && dt < 0.5) {
                     yawRel += raw.rot_alpha * dt;
 
-                    // Kompasz-korrekció: CSAK akkor bízunk az Ori_Alpha-ban, ha nem vagyunk
-                    // nagy dőlésben (a hátradőlés bizonyítottan összekeveri a kompaszt).
-                    if (raw.accG_z !== null && raw.ori_alpha !== null) {
+                    // Kompasz-korrekció: CSAK akkor bízunk az Ori_Alpha-ban, ha
+                    //  (a) nem vagyunk nagy dőlésben, ÉS
+                    //  (b) az Ori_Beta NINCS a "becsapódott" (flipped) ágon.
+                    // FONTOS FELFEDEZÉS a mért adatokból: a nyugalmi "fektetett" pozíció
+                    // (gamma ≈ -90°) pontosan a deviceorientation Euler-szög szingularitásán
+                    // ül, ezért |Ori_Beta| tisztán szenzorzajtól is átbillenhet ~180°-ra -
+                    // MOZDULATLAN telefonnál is, a minták kb. 20%-ában! A deltaZ (dőlés-alapú)
+                    // kapu ezt nem mindig kapja el időben, mert a "flip" nem korrelál
+                    // szorosan a fizikai dőlés mértékével. Az Ori_Beta közvetlen ellenőrzése
+                    // viszont pontosan és azonnal jelzi, amikor Ori_Alpha nem megbízható.
+                    const isCompassFlipped = Math.abs(raw.ori_beta) > 150;
+                    if (raw.accG_z !== null && raw.ori_alpha !== null && !isCompassFlipped) {
                         const deltaZ = Math.abs(raw.accG_z - baselineAccGZ);
                         if (deltaZ < CONFIG.COMPASS_SAFE_TILT) {
                             const compassDelta = wrap180(raw.ori_alpha - calibAlpha);
