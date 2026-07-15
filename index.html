@@ -386,6 +386,8 @@
                 return;
             }
 
+            const recordCount = telemetryData.length;
+
             let csvRows = [];
             csvRows.push("Idobelyeg,Doles_Pitch,Gyorsulas_X,Kormany_Integral,FEL,LE,BAL,JOBB,G1_Kalib,G2_Start,G3_Save,G4_Action");
 
@@ -400,6 +402,7 @@
             const link = document.createElement("a");
             if (window.navigator && window.navigator.msSaveOrOpenBlob) {
                 window.navigator.msSaveOrOpenBlob(blob, `fektetett_szenzor_adatok_${Date.now()}.csv`);
+                alert(`Mentve: ${recordCount} rekord.`);
             } else {
                 const url = URL.createObjectURL(blob);
                 link.href = url;
@@ -408,6 +411,7 @@
                 link.click();
                 document.body.removeChild(link);
                 setTimeout(() => URL.revokeObjectURL(url), 100);
+                alert(`Mentve: ${recordCount} rekord. Ha nem jelent meg letöltés, nézd meg a Letöltések mappát vagy a böngésző letöltés-sávját.`);
             }
         }
         // === HANGOS VEZETÉS ===
@@ -464,6 +468,14 @@
 
             await speak("Tartsd a telefont egyenesen magad előtt, majd nyomd meg a kalibráló gombot.");
             await waitForButton('G1');
+
+            // TESZT MENTÉS: közvetlenül a kalibráció után elmentjük az addig gyűlt
+            // pár adatpontot, hogy azonnal látszódjon, tényleg fut-e a felvétel és
+            // működik-e a fájl letöltése, mielőtt végigmész a teljes gyakorlaton.
+            await wait(500);
+            await speak("Teszt mentés.");
+            saveCSVData();
+            await wait(1000);
 
             await speak("Dőlj hátra a telefonnal.");
             await wait(3000);
