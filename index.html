@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v15 - AZONNALI-LEPES</title>
+    <title>Fektetett Szenzoros Gamepad v16 - SCHMITT-LEPES</title>
     <style>
         * {
             box-sizing: border-box;
@@ -141,7 +141,7 @@
     </style>
 </head>
 <body>
-    <div id="version-badge">v15 - AZONNALI-LEPES</div>
+    <div id="version-badge">v16 - SCHMITT-LEPES</div>
     <div id="gamepad-container">
         <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
         <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
@@ -173,7 +173,7 @@
         // A telefonon a képernyő tetején látszó jelzésből ellenőrizhető,
         // hogy a legfrissebb verzió töltődött-e be (cache-probléma esetén nem).
         // ============================================================
-        const APP_VERSION = "v15 - AZONNALI-LEPES";
+        const APP_VERSION = "v16 - SCHMITT-LEPES";
         document.getElementById('version-badge').textContent = APP_VERSION;
         document.title = "Fektetett Szenzoros Gamepad " + APP_VERSION;
         console.log("Betöltve:", APP_VERSION);
@@ -185,11 +185,15 @@
             TILT_ENTER: 2.5,      // ide kell dőlni, hogy FEL/LE aktiválódjon
             TILT_EXIT: 1.0,       // ide kell visszatérni KÖZÉP-hez
 
-            // --- LÉPÉS-DETEKTÁLÁS (Acc_Y alapú, AZONNALI trigger az első kilengésre) ---
+            // --- LÉPÉS-DETEKTÁLÁS (Acc_Y alapú, amplitúdó-alapú "fel-le kapcsoló") ---
             // A mért adatokból: nyugalmi Acc_Y szórás ~0.13, lépés közben a csúcsok
             // rendszerint 1.5-nél nagyobbak (gyakran 2-4 közöttiek).
-            STEP_THRESHOLD: 0.9,     // ekkora kilengés azonnal lépésnek számít
-            STEP_REFRACTORY_MS: 400, // egy lépés után ennyi ideig nem indul új (a visszalökés/lecsengés ne triggereljen újra)
+            // NEM időzítővel védekezünk az újra-triggerelés ellen (az korábban hamis
+            // eseményeket okozott, ha a lépés lecsengése az időzítőn túlnyúlt), hanem
+            // amplitúdó-hiszterézissel: a rendszer csak akkor "fegyverzi fel" magát
+            // újra, ha a jel ténylegesen visszatért egy alacsony, nyugalmi szint alá.
+            STEP_THRESHOLD: 0.9,       // ekkora kilengés azonnal lépésnek számít
+            STEP_REARM_THRESHOLD: 0.3, // ez alá kell csillapodnia, mielőtt új lépés jöhet
             // Előjel-konvenció: melyik irányú kilengés jelenti a "balra" lépést.
             // Egy valódi teszten fordítva jött ki (az első "Lépj balra" JOBB-ként
             // regisztrálódott), ezért megfordítottuk -1 -> +1.
@@ -228,7 +232,7 @@
         // léptetik: minden lépés-esemény egy sávval arrébb tolja (BAL <-> KOZEP <-> JOBB),
         // ütközve a szélén (BAL-nál balra lépve marad BAL, JOBB-nál jobbra lépve marad JOBB).
         let lanePosition = 'KOZEP';  // 'BAL' | 'KOZEP' | 'JOBB'
-        let stepRefractoryUntil = 0; // eddig az időpontig nem fogadunk el új lépést
+        let stepArmed = true; // igaz, ha a jel nyugodt volt - készen áll egy új lépésre
         let lastStepEvent = null;    // csak megjelenítéshez / CSV-hez: 'BAL' | 'JOBB' | null
         let lastStepEventTime = 0;
 
@@ -299,7 +303,7 @@
             baselineAccGZ = historyAccGZ.length > 0 ? median(historyAccGZ) : (raw.accG_z || 0);
             tiltState = 'KOZEP';
             lanePosition = 'KOZEP';
-            stepRefractoryUntil = 0;
+            stepArmed = true;
             lastStepEvent = null;
             isCalibrated = true;
         }
@@ -347,22 +351,27 @@
         // nélküli) Acc_Y jelen. Ez EGYSZERI ESEMÉNY, nem folytonos állapot -
         // olyan, mint egy gombnyomás, nem mint egy megtartott irány.
         function detectStep(accY) {
-            // AZONNALI detektálás: mivel a törzsfordítást és a hajlítást kivettük,
-            // az Acc_Y-on gyakorlatilag csak a lépés ad jelentős kilengést - nem kell
-            // megvárni az ellenkező irányú visszalökést a megerősítéshez, mert nincs
-            // már más plauzibilis forrás, ami tévesen kiválthatná. Ez minimálisra
-            // csökkenti a késleltetést, ami egy ritmusjátéknál kritikus.
+            // AZONNALI detektálás, DE amplitúdó-hiszterézissel védve: mivel a
+            // törzsfordítást és a hajlítást kivettük, az Acc_Y-on gyakorlatilag csak
+            // a lépés ad jelentős kilengést, ezért nem kell megvárni az ellenkező
+            // irányú visszalökést a megerősítéshez - viszont időzítő helyett a jel
+            // TÉNYLEGES lecsengését várjuk meg, mielőtt új lépést engedünk, mert egy
+            // rögzített idejű "hűtés" hamis eseményt okozott, ha a lecsengés tovább
+            // tartott az időzítőnél.
             if (!isCalibrated || accY === null) return;
-            const now = performance.now();
+            const absY = Math.abs(accY);
 
-            if (now < stepRefractoryUntil) return; // frissen volt lépés, hűtési idő - a
-                                                     // visszalökés/lecsengés ne triggereljen újra
-
-            if (Math.abs(accY) > CONFIG.STEP_THRESHOLD) {
-                const sign = Math.sign(accY);
-                const direction = (sign === CONFIG.STEP_SIGN_BAL) ? 'BAL' : 'JOBB';
-                onStepDetected(direction);
-                stepRefractoryUntil = now + CONFIG.STEP_REFRACTORY_MS;
+            if (stepArmed) {
+                if (absY > CONFIG.STEP_THRESHOLD) {
+                    const sign = Math.sign(accY);
+                    const direction = (sign === CONFIG.STEP_SIGN_BAL) ? 'BAL' : 'JOBB';
+                    onStepDetected(direction);
+                    stepArmed = false; // amíg vissza nem csillapodik, ne ismétlődjön
+                }
+            } else {
+                if (absY < CONFIG.STEP_REARM_THRESHOLD) {
+                    stepArmed = true; // a jel ténylegesen elcsendesedett - jöhet a következő lépés
+                }
             }
         }
 
