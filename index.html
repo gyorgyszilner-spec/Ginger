@@ -3,31 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mozgásvezérelt sportkocsi</title>
+<title>Mozgásvezérelt sávváltós sportkocsi</title>
 <style>
     * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
-    html, body { width: 100%; background-color: #050208; font-family: sans-serif; color: white; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background-color: #050208; font-family: sans-serif; color: white; }
 
-    /* ---- vezérlő panel ---- */
-    #gamepad-container {
-        position: relative;
-        width: 100%;
-        height: 260px;
-        background-color: #121212;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 10px;
-    }
+    .screen { width: 100%; height: 100%; }
+    .hidden { display: none !important; }
+
+    /* ---- 1. képernyő: kalibrációs vezérlő ---- */
+    #screen-calib { position: relative; background-color: #121212; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #gamepad-container { position: relative; width: 100%; max-width: 640px; height: 280px; display: flex; justify-content: center; align-items: center; }
     .action-btn {
-        position: absolute;
-        width: 75px; height: 75px;
-        border-radius: 50%;
-        background-color: rgba(255,255,255,0.12);
-        border: 2px solid rgba(255,255,255,0.4);
+        position: absolute; width: 75px; height: 75px; border-radius: 50%;
+        background-color: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.4);
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        font-weight: bold; font-size: 0.8rem; color: white; text-align: center;
-        z-index: 10; line-height: 1.1;
+        font-weight: bold; font-size: 0.8rem; color: white; text-align: center; z-index: 10; line-height: 1.1;
     }
     .action-btn span { font-size: 0.65rem; opacity: 0.7; font-weight: normal; }
     #btn-tl { top: 15px; left: 15px; border-color: #ffb74d; }
@@ -36,30 +27,12 @@
     .action-btn.active { background-color: rgba(255,255,255,0.3); transform: scale(0.95); }
     #btn-tr.running { background-color: rgba(76,175,80,0.4); }
 
-    #center-panel {
-        display: flex; flex-direction: row; justify-content: center; align-items: center;
-        gap: 20px; width: 100%; max-width: 640px; z-index: 5;
-    }
-    #telemetry {
-        font-family: monospace; font-size: 0.62rem; background: rgba(0,0,0,0.6);
-        padding: 10px; border-radius: 5px; width: 250px; text-align: left;
-        border: 1px solid rgba(255,255,255,0.1); line-height: 1.5;
-    }
+    #center-panel { display: flex; flex-direction: row; justify-content: center; align-items: center; gap: 20px; width: 100%; max-width: 640px; z-index: 5; }
+    #telemetry { font-family: monospace; font-size: 0.62rem; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 5px; width: 250px; text-align: left; border: 1px solid rgba(255,255,255,0.1); line-height: 1.5; }
     #telemetry b { color: #ffca28; }
 
-    /* csak fel/le/balra/jobbra - kereszt elrendezés, átlók nélkül */
-    .compass-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(3, 1fr);
-        gap: 8px; width: 150px; height: 150px; flex-shrink: 0;
-    }
-    .arrow {
-        display: flex; justify-content: center; align-items: center;
-        background-color: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 6px; font-size: 1.2rem; color: rgba(255,255,255,0.2);
-    }
+    .compass-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; width: 150px; height: 150px; flex-shrink: 0; }
+    .arrow { display: flex; justify-content: center; align-items: center; background-color: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 1.2rem; color: rgba(255,255,255,0.2); }
     .arrow.active { background-color: #00e676; color: #121212; font-weight: bold; box-shadow: 0 0 12px #00e676; }
     #dir-n { grid-column: 2; grid-row: 1; }
     #dir-w { grid-column: 1; grid-row: 2; }
@@ -68,15 +41,17 @@
     #dir-s { grid-column: 2; grid-row: 3; }
     #dir-c.active { background-color: #2196f3; color: white; box-shadow: 0 0 12px #2196f3; }
 
-    #version-badge {
-        position: fixed; top: 4px; left: 50%; transform: translateX(-50%);
-        font-family: monospace; font-size: 0.7rem; color: #ffca28;
-        background: rgba(0,0,0,0.5); padding: 2px 10px; border-radius: 4px;
-        z-index: 100; pointer-events: none;
+    #startGameBtn {
+        display: none; margin-top: 26px; padding: 16px 34px; font-size: 1rem; font-weight: bold;
+        letter-spacing: .5px; color: #121212; background: #00e676; border: none; border-radius: 10px;
+        cursor: pointer; box-shadow: 0 0 20px rgba(0,230,118,.4);
     }
+    #startGameBtn:active { transform: scale(0.97); }
 
-    /* ---- játék ---- */
-    #game-section { position: relative; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: #050208; }
+    #version-badge { position: fixed; top: 4px; left: 50%; transform: translateX(-50%); font-family: monospace; font-size: 0.7rem; color: #ffca28; background: rgba(0,0,0,0.5); padding: 2px 10px; border-radius: 4px; z-index: 100; pointer-events: none; }
+
+    /* ---- 2. képernyő: játék ---- */
+    #screen-game { position: relative; display: flex; align-items: center; justify-content: center; background: #050208; }
     canvas { display: block; max-width: 100%; max-height: 100%; background: #000; box-shadow: 0 0 40px rgba(255,90,50,.15); }
     #hud { position: absolute; top: 14px; left: 14px; font-size: 13px; letter-spacing: .5px; background: rgba(10,6,14,.55); padding: 8px 12px; border-radius: 6px; }
     #hud b { color: #ff5a3c; }
@@ -87,60 +62,59 @@
 </style>
 </head>
 <body>
-<div id="version-badge">v10 - VEZERLO+JATEK</div>
+<div id="version-badge">v11 - SAVVALTOS</div>
 
-<!-- ============ VEZÉRLŐ PANEL ============ -->
-<div id="gamepad-container">
-    <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
-    <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
-    <div class="action-btn" id="btn-br">G4<br><span>AKCIÓ</span></div>
+<!-- ============ 1. KÉPERNYŐ: KALIBRÁCIÓ ============ -->
+<div id="screen-calib" class="screen">
+    <div id="gamepad-container">
+        <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
+        <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
+        <div class="action-btn" id="btn-br">G4<br><span>AKCIÓ</span></div>
 
-    <div id="center-panel">
-        <div id="telemetry">Szenzorok: Inaktív</div>
-        <div class="compass-grid">
-            <div class="arrow" id="dir-n">↑</div>
-            <div class="arrow" id="dir-w">←</div>
-            <div class="arrow" id="dir-c">KÖZÉP</div>
-            <div class="arrow" id="dir-e">→</div>
-            <div class="arrow" id="dir-s">↓</div>
+        <div id="center-panel">
+            <div id="telemetry">Szenzorok: Inaktív</div>
+            <div class="compass-grid">
+                <div class="arrow" id="dir-n">↑</div>
+                <div class="arrow" id="dir-w">←</div>
+                <div class="arrow" id="dir-c">KÖZÉP</div>
+                <div class="arrow" id="dir-e">→</div>
+                <div class="arrow" id="dir-s">↓</div>
+            </div>
         </div>
     </div>
+    <button id="startGameBtn">JÁTÉK INDÍTÁSA ▶</button>
 </div>
 
-<!-- ============ JÁTÉK ============ -->
-<div id="game-section">
+<!-- ============ 2. KÉPERNYŐ: JÁTÉK ============ -->
+<div id="screen-game" class="screen hidden">
     <canvas id="game" width="1000" height="600"></canvas>
-    <div id="hud">sebesség: <b id="speedVal">0</b> km/h</div>
+    <div id="hud">sebesség: <b id="speedVal">0</b> km/h &nbsp;|&nbsp; pont: <b id="scoreVal">0</b> &nbsp;|&nbsp; ütközés: <b id="crashVal">0</b></div>
     <div id="weather">
         <button class="wbtn active" data-w="sunny">napos</button>
         <button class="wbtn" data-w="sunset">naplemente</button>
         <button class="wbtn" data-w="rainy">esős</button>
         <button class="wbtn" data-w="snowy">havas</button>
     </div>
-    <div id="help">gyorsítás: hátradőlés &nbsp; lassítás: előredőlés &nbsp; kanyar: dőlj/fordulj balra-jobbra<br>(billentyűzettel is: ↑↓←→ / WASD)</div>
+    <div id="help">gyorsítás: hátradőlés &nbsp; lassítás: előredőlés &nbsp; sávváltás: dőlj/fordulj balra-jobbra, majd vissza középre<br>(billentyűzettel is: ↑↓ gáz-fék, ←→ / A D sávváltás)</div>
 </div>
 
 <script>
 // ============================================================
 // 1) MOZGÁSÉRZÉKELŐ VEZÉRLŐ (kalibráció + fel/le/balra/jobbra állapotgép)
 // ============================================================
-const APP_VERSION = "v10 - VEZERLO+JATEK";
+const APP_VERSION = "v11 - SAVVALTOS";
 document.getElementById('version-badge').textContent = APP_VERSION;
-document.title = "Mozgásvezérelt sportkocsi " + APP_VERSION;
+document.title = "Mozgásvezérelt sávváltós sportkocsi " + APP_VERSION;
 
 const CONFIG = {
-    TILT_ENTER: 2.5,
-    TILT_EXIT: 1.0,
-    TURN_ENTER: 30,
-    TURN_EXIT: 12,
+    TILT_ENTER: 2.5, TILT_EXIT: 1.0,
+    TURN_ENTER: 30, TURN_EXIT: 12,
     PLAUSIBLE_MAX_DELTA: 100,
-    SETTLE_ROT_DEG_S: 8,
-    SETTLE_MS: 150,
+    SETTLE_ROT_DEG_S: 8, SETTLE_MS: 150,
     COMPASS_SAFE_TILT: 2.0
 };
 
 let isRunning = false;
-let recordIntervalId = null;
 let guideStarted = false;
 let buttonStates = { G1: 0, G2: 0, G4: 0 };
 
@@ -152,66 +126,43 @@ let raw = {
     motion_interval: null
 };
 
-let isCalibrated = false;
-let calibAlpha = 0;
-let baselineAccGZ = 0;
-let yawRel = 0;
-let lastMotionTime = null;
-
-let tiltState = 'KOZEP';
-let turnState = 'KOZEP';
-let turnCandidate = 'KOZEP';
-let settleTimer = 0;
-let lastTickTime = null;
+let isCalibrated = false, calibAlpha = 0, baselineAccGZ = 0, yawRel = 0, lastMotionTime = null;
+let tiltState = 'KOZEP', turnState = 'KOZEP', turnCandidate = 'KOZEP', settleTimer = 0, lastTickTime = null;
 
 // ezt olvassa a játék: 'KOZEP' | 'FEL' | 'LE' | 'BAL' | 'JOBB'
 let motionState = 'KOZEP';
+let prevMotionState = 'KOZEP';
 
 const telemetryEl = document.getElementById('telemetry');
 const btnTR = document.getElementById('btn-tr');
+const startGameBtn = document.getElementById('startGameBtn');
 
 const setupButton = (elementId, key, callbackPress) => {
     const btn = document.getElementById(elementId);
     btn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        btn.classList.add('active');
-        buttonStates[key] = 1;
+        e.preventDefault(); btn.classList.add('active'); buttonStates[key] = 1;
         if (guideWaitingForAny) startSensors();
         notifyButtonPress(key);
         if (callbackPress) callbackPress();
     }, { passive: false });
-    btn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        btn.classList.remove('active');
-        buttonStates[key] = 0;
-    }, { passive: false });
-    // asztali teszthez egérrel is működjön
-    btn.addEventListener('mousedown', (e) => {
-        btn.classList.add('active');
-        buttonStates[key] = 1;
+    btn.addEventListener('touchend', (e) => { e.preventDefault(); btn.classList.remove('active'); buttonStates[key] = 0; }, { passive: false });
+    btn.addEventListener('mousedown', () => {
+        btn.classList.add('active'); buttonStates[key] = 1;
         if (guideWaitingForAny) startSensors();
         notifyButtonPress(key);
         if (callbackPress) callbackPress();
     });
     btn.addEventListener('mouseup', () => { btn.classList.remove('active'); buttonStates[key] = 0; });
 };
-
 setupButton('btn-tl', 'G1', () => { calibrate(); });
 setupButton('btn-tr', 'G2', () => { startSensors(); });
 setupButton('btn-br', 'G4', null);
 
-window.addEventListener('load', () => {
-    if (!guideStarted) { guideStarted = true; runGuidedSequence(); }
-});
+window.addEventListener('load', () => { if (!guideStarted) { guideStarted = true; runGuidedSequence(); } });
 
 const HISTORY_LEN = 7;
 let historyAlpha = [], historyBeta = [], historyAccGZ = [];
-
-function median(arr) {
-    if (arr.length === 0) return 0;
-    const sorted = [...arr].sort((a, b) => a - b);
-    return sorted[Math.floor(sorted.length / 2)];
-}
+function median(arr) { if (arr.length === 0) return 0; const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; }
 function pushHistory() {
     if (raw.ori_alpha !== null) { historyAlpha.push(raw.ori_alpha); if (historyAlpha.length > HISTORY_LEN) historyAlpha.shift(); }
     if (raw.ori_beta !== null) { historyBeta.push(raw.ori_beta); if (historyBeta.length > HISTORY_LEN) historyBeta.shift(); }
@@ -227,12 +178,9 @@ function calibrate() {
             if (historyAccGZ[i] !== undefined) goodAccGZ.push(historyAccGZ[i]);
         }
     }
-    let a = goodAlphas.length > 0 ? median(goodAlphas) : ((raw.ori_alpha || 0) + 180) % 360;
-    calibAlpha = a;
+    calibAlpha = goodAlphas.length > 0 ? median(goodAlphas) : ((raw.ori_alpha || 0) + 180) % 360;
     baselineAccGZ = goodAccGZ.length > 0 ? median(goodAccGZ) : (raw.accG_z || 0);
-    yawRel = 0;
-    turnState = 'KOZEP'; turnCandidate = 'KOZEP'; tiltState = 'KOZEP';
-    settleTimer = 0;
+    yawRel = 0; turnState = 'KOZEP'; turnCandidate = 'KOZEP'; tiltState = 'KOZEP'; settleTimer = 0;
     isCalibrated = true;
 }
 
@@ -240,28 +188,20 @@ async function startSensors() {
     if (isRunning) return;
     try {
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            const p1 = await DeviceOrientationEvent.requestPermission();
-            if (p1 !== 'granted') { alert("Szenzor hozzáférés elutasítva (dőlés)!"); return; }
+            if (await DeviceOrientationEvent.requestPermission() !== 'granted') { alert("Szenzor hozzáférés elutasítva (dőlés)!"); return; }
         }
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-            const p2 = await DeviceMotionEvent.requestPermission();
-            if (p2 !== 'granted') { alert("Szenzor hozzáférés elutasítva (gyorsulás)!"); return; }
+            if (await DeviceMotionEvent.requestPermission() !== 'granted') { alert("Szenzor hozzáférés elutasítva (gyorsulás)!"); return; }
         }
         window.addEventListener('deviceorientation', handleOrientation);
         window.addEventListener('devicemotion', handleMotion);
         isRunning = true;
-        btnTR.classList.add('running');
-        btnTR.innerHTML = "G2<br><span>FUT...</span>";
-        recordIntervalId = setInterval(sensorTick, 20);
-    } catch (err) {
-        alert("Szenzor hiba: " + err);
-    }
+        btnTR.classList.add('running'); btnTR.innerHTML = "G2<br><span>FUT...</span>";
+        setInterval(sensorTick, 20);
+    } catch (err) { alert("Szenzor hiba: " + err); }
 }
 
-function handleOrientation(event) {
-    raw.ori_alpha = event.alpha; raw.ori_beta = event.beta; raw.ori_gamma = event.gamma;
-    pushHistory();
-}
+function handleOrientation(event) { raw.ori_alpha = event.alpha; raw.ori_beta = event.beta; raw.ori_gamma = event.gamma; pushHistory(); }
 function wrap180(deg) { let d = deg % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; }
 
 function handleMotion(event) {
@@ -270,15 +210,13 @@ function handleMotion(event) {
     if (event.rotationRate) { raw.rot_alpha = event.rotationRate.alpha; raw.rot_beta = event.rotationRate.beta; raw.rot_gamma = event.rotationRate.gamma; }
     raw.motion_interval = event.interval;
     pushHistory();
-
     const now = performance.now();
     if (isCalibrated && lastMotionTime !== null && raw.rot_alpha !== null) {
         let dt = (now - lastMotionTime) / 1000;
         if (dt > 0 && dt < 0.5) {
             yawRel += raw.rot_alpha * dt;
-            const isCompassFlipped = isFlippedFiltered();
             const isYawSettled = Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S;
-            if (raw.accG_z !== null && raw.ori_alpha !== null && !isCompassFlipped && isYawSettled) {
+            if (raw.accG_z !== null && raw.ori_alpha !== null && !isFlippedFiltered() && isYawSettled) {
                 const deltaZ = Math.abs(median(historyAccGZ) - baselineAccGZ);
                 if (deltaZ < CONFIG.COMPASS_SAFE_TILT) {
                     const compassDelta = wrap180(raw.ori_alpha - calibAlpha);
@@ -293,47 +231,31 @@ function handleMotion(event) {
 function updateTiltState() {
     if (!isCalibrated || historyAccGZ.length === 0) return;
     const deltaZ = median(historyAccGZ) - baselineAccGZ;
-    if (tiltState === 'KOZEP') {
-        if (deltaZ > CONFIG.TILT_ENTER) tiltState = 'FEL';
-        else if (deltaZ < -CONFIG.TILT_ENTER) tiltState = 'LE';
-    } else if (tiltState === 'FEL') {
-        if (deltaZ < CONFIG.TILT_EXIT) tiltState = 'KOZEP';
-    } else if (tiltState === 'LE') {
-        if (deltaZ > -CONFIG.TILT_EXIT) tiltState = 'KOZEP';
-    }
+    if (tiltState === 'KOZEP') { if (deltaZ > CONFIG.TILT_ENTER) tiltState = 'FEL'; else if (deltaZ < -CONFIG.TILT_ENTER) tiltState = 'LE'; }
+    else if (tiltState === 'FEL') { if (deltaZ < CONFIG.TILT_EXIT) tiltState = 'KOZEP'; }
+    else if (tiltState === 'LE') { if (deltaZ > -CONFIG.TILT_EXIT) tiltState = 'KOZEP'; }
 }
-
 function updateTurnState(dtMs) {
     if (!isCalibrated || raw.rot_alpha === null) return;
-    if (turnState === 'KOZEP') {
-        if (yawRel > CONFIG.TURN_ENTER) turnCandidate = 'BAL';
-        else if (yawRel < -CONFIG.TURN_ENTER) turnCandidate = 'JOBB';
-        else turnCandidate = 'KOZEP';
-    } else if (turnState === 'BAL') {
-        turnCandidate = (yawRel < CONFIG.TURN_EXIT) ? 'KOZEP' : 'BAL';
-    } else if (turnState === 'JOBB') {
-        turnCandidate = (yawRel > -CONFIG.TURN_EXIT) ? 'KOZEP' : 'JOBB';
-    }
+    if (turnState === 'KOZEP') { turnCandidate = yawRel > CONFIG.TURN_ENTER ? 'BAL' : (yawRel < -CONFIG.TURN_ENTER ? 'JOBB' : 'KOZEP'); }
+    else if (turnState === 'BAL') { turnCandidate = (yawRel < CONFIG.TURN_EXIT) ? 'KOZEP' : 'BAL'; }
+    else if (turnState === 'JOBB') { turnCandidate = (yawRel > -CONFIG.TURN_EXIT) ? 'KOZEP' : 'JOBB'; }
     if (Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S) settleTimer += dtMs; else settleTimer = 0;
     if (turnCandidate !== turnState && settleTimer >= CONFIG.SETTLE_MS) turnState = turnCandidate;
 }
-
 function combinedStateId() {
-    // csak 5 állapot: KOZEP + FEL/LE/BAL/JOBB - nincs átló
     if (turnState === 'BAL') return 'BAL';
     if (turnState === 'JOBB') return 'JOBB';
     if (tiltState === 'FEL') return 'FEL';
     if (tiltState === 'LE') return 'LE';
     return 'KOZEP';
 }
-
 function updateVisualArrows(stateId) {
     document.querySelectorAll('.arrow').forEach(el => el.classList.remove('active'));
     const map = { 'KOZEP': 'dir-c', 'FEL': 'dir-n', 'LE': 'dir-s', 'BAL': 'dir-w', 'JOBB': 'dir-e' };
     const id = map[stateId];
     if (id) document.getElementById(id).classList.add('active');
 }
-
 function fmt(v, d) { return (v === null || v === undefined || isNaN(v)) ? '--' : v.toFixed(d === undefined ? 1 : d); }
 
 function sensorTick() {
@@ -346,7 +268,15 @@ function sensorTick() {
     updateTurnState(dtMs);
     const stateId = combinedStateId();
     motionState = stateId;
+
+    // sávváltás: csak ÁTMENETKOR (belépéskor BAL/JOBB-ba), nem folyamatosan
+    if (motionState === 'BAL' && prevMotionState !== 'BAL') shiftLane(-1);
+    if (motionState === 'JOBB' && prevMotionState !== 'JOBB') shiftLane(1);
+    prevMotionState = motionState;
+
     updateVisualArrows(stateId);
+
+    if (isCalibrated) startGameBtn.style.display = 'block';
 
     telemetryEl.innerHTML = `
         Szenzorok: <b>FUT</b><br>
@@ -357,17 +287,13 @@ function sensorTick() {
     `;
 }
 
-// ---- hangos vezetés a kalibrációhoz (csak fel/le/balra/jobbra) ----
 let guideResolveButton = null, guideWaitingForAny = false, guideWaitingForKey = null;
-
 function speak(text) {
     return new Promise((resolve) => {
         if (!('speechSynthesis' in window)) { resolve(); return; }
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = 'hu-HU'; utter.rate = 1;
-        utter.onend = resolve; utter.onerror = resolve;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utter);
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'hu-HU'; u.rate = 1; u.onend = resolve; u.onerror = resolve;
+        window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
     });
 }
 function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
@@ -378,47 +304,35 @@ function waitForButton(key) {
         guideResolveButton = () => { guideWaitingForAny = false; guideWaitingForKey = null; guideResolveButton = null; resolve(); };
     });
 }
-function notifyButtonPress(key) {
-    if (guideResolveButton && (guideWaitingForAny || guideWaitingForKey === key)) guideResolveButton();
-}
+function notifyButtonPress(key) { if (guideResolveButton && (guideWaitingForAny || guideWaitingForKey === key)) guideResolveButton(); }
 
 async function runGuidedSequence() {
     await speak("Állj fel, legyen körülötted legalább egy méter szabad hely. Ha készen állsz, nyomj meg bármelyik gombot.");
     await waitForButton('any');
-
     await speak("Tartsd a telefont egyenesen magad előtt, majd nyomd meg a kalibráló gombot.");
     await waitForButton('G1');
     await wait(500);
-
     await speak("Dőlj hátra a telefonnal. Ez lesz a gyorsítás.");
     await wait(3000);
-
     await speak("Állj egyenesen.");
     await wait(2000);
-
     await speak("Dőlj előre a telefonnal. Ez lesz a lassítás.");
     await wait(3000);
-
     await speak("Állj egyenesen.");
     await wait(2000);
-
-    await speak("Fordulj balra, és ott állj meg.");
+    await speak("Fordulj balra, és ott állj meg. Ez egy sávot lép balra.");
     await wait(3000);
-
     await speak("Fordulj vissza középre.");
     await wait(2000);
-
-    await speak("Fordulj jobbra, és ott állj meg.");
+    await speak("Fordulj jobbra, és ott állj meg. Ez egy sávot lép jobbra.");
     await wait(3000);
-
     await speak("Fordulj vissza középre.");
     await wait(2000);
-
-    await speak("Kész a kalibráció. Görgess le, és indulhat a vezetés.");
+    await speak("Kész a kalibráció. Nyomd meg a Játék indítása gombot.");
 }
 
 // ============================================================
-// 2) A JÁTÉK - pszeudo-3D vezethető pálya
+// 2) A JÁTÉK - 3 sávos, hullámokban jövő forgalommal
 // ============================================================
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -431,13 +345,15 @@ const drawDistance = 180;
 const cameraHeight = 1100;
 const fieldOfView = 100;
 const cameraDepth = 1 / Math.tan((fieldOfView / 2) * Math.PI / 180);
-const maxSpeed = segmentLength * 60;
-const accel = maxSpeed / 2.2;
-const braking = -maxSpeed * 1.4;
-const decel = -maxSpeed / 3.2;
-const offRoadDecel = -maxSpeed / 2.4;
-const offRoadLimit = maxSpeed * 0.5;
-const centrifugal = 0.28;
+
+const maxSpeed = segmentLength * 20;
+const accel = maxSpeed / 2.0;
+const braking = -maxSpeed * 1.3;
+const decel = -maxSpeed / 2.5;
+
+const laneX = [-0.62, 0, 0.62];
+let laneIndex = 1;
+function shiftLane(dir) { laneIndex = Math.max(0, Math.min(2, laneIndex + dir)); }
 
 const COLORS = {
     LIGHT: { road: '#6b6b70', grass: '#2f6b3a', rumble: '#d9d9d9', lane: '#d9d9d9' },
@@ -454,14 +370,7 @@ let currentWeather = 'sunny';
 let segments = [];
 function addSegment(curve) {
     const n = segments.length;
-    segments.push({
-        index: n,
-        p1: { world: { z: n * segmentLength }, screen: {} },
-        p2: { world: { z: (n + 1) * segmentLength }, screen: {} },
-        curve: curve,
-        color: (Math.floor(n / rumbleLength) % 2) ? COLORS.DARK : COLORS.LIGHT,
-        sprites: []
-    });
+    segments.push({ index: n, p1: { world: { z: n * segmentLength }, screen: {} }, p2: { world: { z: (n + 1) * segmentLength }, screen: {} }, curve, color: (Math.floor(n / rumbleLength) % 2) ? COLORS.DARK : COLORS.LIGHT, sprites: [] });
 }
 function easeIn(a, b, p) { return a + (b - a) * p * p; }
 function easeInOut(a, b, p) { return a + (b - a) * ((-Math.cos(p * Math.PI) / 2) + 0.5); }
@@ -491,6 +400,7 @@ buildTrack();
 const trackLength = segments.length * segmentLength;
 function findSegment(z) { return segments[Math.floor(z / segmentLength) % segments.length]; }
 function percentRemaining(z, len) { return (z % len) / len; }
+function wrapDist(a, b, len) { let d = Math.abs(a - b) % len; return d > len / 2 ? len - d : d; }
 
 function project(p, cameraX, cameraY, cameraZ, camDepth, width, height, roadW) {
     const transX = -cameraX, transY = -cameraY;
@@ -502,20 +412,35 @@ function project(p, cameraX, cameraY, cameraZ, camDepth, width, height, roadW) {
     p.screen.w = Math.round(scale * roadW * width / 2);
 }
 
-let position = 0, playerX = 0, speed = 0, lean = 0;
+let position = 0, playerX = laneX[1], speed = 0, score = 0, crashCount = 0, crashFlash = 0, invulnerable = false;
 
+// ---- hullámokban érkező forgalom: minden hullámban 2 sáv foglalt, 1 mindig szabad ----
 const carColors = ['#3d7dff', '#ffd23d', '#8f3dff', '#3dffb0', '#ff8f3d'];
+const trafficSpeed = maxSpeed * 0.42;
+const waveSpacing = 2600;
 let aiCars = [];
-function buildCars(n) {
+function buildTraffic() {
     aiCars = [];
-    for (let i = 0; i < n; i++) {
-        aiCars.push({ z: Math.random() * trackLength, x: [-0.5, 0, 0.5][i % 3], speed: maxSpeed * (0.25 + Math.random() * 0.25), color: carColors[i % carColors.length] });
+    const numWaves = Math.floor(trackLength / waveSpacing);
+    for (let w = 2; w < numWaves; w++) {
+        const z = w * waveSpacing;
+        const openLane = Math.floor(Math.random() * 3);
+        [0, 1, 2].filter(l => l !== openLane).forEach((lane, idx) => {
+            aiCars.push({ z, lane, color: carColors[(w + idx) % carColors.length] });
+        });
     }
 }
-buildCars(8);
+buildTraffic();
 
 const keys = {};
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (!keys[k]) {
+        if (k === 'arrowleft' || k === 'a') shiftLane(-1);
+        if (k === 'arrowright' || k === 'd') shiftLane(1);
+    }
+    keys[k] = true;
+});
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 let particles = [];
@@ -534,46 +459,53 @@ document.querySelectorAll('.wbtn').forEach(btn => {
     });
 });
 
+// ---- képernyőváltás: kalibráció → játék ----
+let gameActive = false;
+function resetGame() {
+    position = 0; speed = 0; laneIndex = 1; playerX = laneX[1];
+    score = 0; crashCount = 0; crashFlash = 0; invulnerable = false;
+    buildTraffic();
+}
+startGameBtn.addEventListener('click', () => {
+    if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    }
+    document.getElementById('screen-calib').classList.add('hidden');
+    document.getElementById('screen-game').classList.remove('hidden');
+    resetGame();
+    gameActive = true;
+});
+
 function update(dt) {
     position += speed * dt;
     if (position >= trackLength) position -= trackLength;
     if (position < 0) position += trackLength;
 
-    const segment = findSegment(position);
     const speedRatio = speed / maxSpeed;
+    playerX += (laneX[laneIndex] - playerX) * Math.min(1, dt * 8);
 
-    // kormányzás: billentyűzet VAGY a telefon fordulás-állapota (BAL/JOBB)
-    let steer = 0;
-    if (keys['arrowleft'] || keys['a'] || motionState === 'BAL') steer -= 1;
-    if (keys['arrowright'] || keys['d'] || motionState === 'JOBB') steer += 1;
-    playerX += steer * 2.6 * dt * (0.3 + 0.7 * speedRatio);
-    playerX -= segment.curve * speedRatio * centrifugal * dt * 2.2;
-    lean += (steer - lean) * dt * 6;
-
-    // gáz/fék: billentyűzet VAGY a telefon dőlés-állapota
-    // hátradőlés (FEL) = gyorsítás, előredőlés (LE) = lassítás
     if (keys['arrowup'] || keys['w'] || motionState === 'FEL') speed += accel * dt;
     else if (keys['arrowdown'] || keys['s'] || motionState === 'LE') speed += braking * dt;
     else speed += decel * dt;
-
-    if (playerX < -1.1 || playerX > 1.1) {
-        speed += offRoadDecel * dt;
-        if (speed > offRoadLimit) speed = offRoadLimit;
-    }
     speed = Math.max(0, Math.min(maxSpeed, speed));
-    playerX = Math.max(-2.2, Math.min(2.2, playerX));
 
-    aiCars.forEach(c => { c.z += c.speed * dt; if (c.z >= trackLength) c.z -= trackLength; });
+    aiCars.forEach(c => { c.z += trafficSpeed * dt; if (c.z >= trackLength) c.z -= trackLength; });
 
-    const playerSegIndex = segment.index;
-    aiCars.forEach(c => {
-        if (findSegment(c.z).index === playerSegIndex && Math.abs(c.x - playerX) < 0.5) {
-            speed *= 0.85;
-            playerX += (playerX < c.x ? -1 : 1) * 0.4;
+    if (!invulnerable) {
+        for (const c of aiCars) {
+            if (c.lane === laneIndex && wrapDist(c.z, position, trackLength) < 260) {
+                speed *= 0.3; crashCount++; crashFlash = 1; invulnerable = true;
+                setTimeout(() => invulnerable = false, 900);
+                break;
+            }
         }
-    });
+    }
+    crashFlash = Math.max(0, crashFlash - dt * 1.6);
 
+    score += speed * dt * 0.01;
     document.getElementById('speedVal').textContent = Math.round(speedRatio * 220);
+    document.getElementById('scoreVal').textContent = Math.floor(score);
+    document.getElementById('crashVal').textContent = crashCount;
 }
 
 function drawSky() {
@@ -611,7 +543,6 @@ function drawPlayerCar() {
     const w = 170, h = 90, y = HEIGHT - 120;
     ctx.save();
     ctx.translate(WIDTH / 2, y + h / 2);
-    ctx.rotate(lean * 0.12);
     ctx.fillStyle = '#d9241c';
     ctx.fillRect(-w / 2, -h / 2, w, h);
     ctx.fillStyle = 'rgba(20,10,10,.55)';
@@ -673,7 +604,7 @@ function render() {
         aiCars.forEach(c => {
             if (findSegment(c.z).index === seg.index) {
                 const halfW = p1.w * 0.22, h = halfW * 1.3;
-                const cx = p1.x + c.x * p1.w;
+                const cx = p1.x + laneX[c.lane] * p1.w;
                 ctx.fillStyle = c.color;
                 ctx.fillRect(cx - halfW, p1.y - h, halfW * 2, h);
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -686,14 +617,18 @@ function render() {
     ctx.fillStyle = WEATHER[currentWeather].tint;
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
     drawParticles();
+
+    if (crashFlash > 0) {
+        ctx.fillStyle = `rgba(255,30,20,${crashFlash * 0.5})`;
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    }
 }
 
 let lastTime = performance.now();
 function frame(now) {
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
-    update(dt);
-    render();
+    if (gameActive) { update(dt); render(); }
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
