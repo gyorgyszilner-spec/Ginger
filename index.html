@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v11 - LEPES-ESEMENY-LANE</title>
+    <title>Fektetett Szenzoros Gamepad v13 - RACS3X3-FUZIO</title>
     <style>
         * {
             box-sizing: border-box;
@@ -115,9 +115,6 @@
             font-weight: bold;
             box-shadow: 0 0 12px #00e676;
         }
-        .arrow-empty {
-            background: transparent;
-        }
         #dir-c {
             background-color: rgba(255,255,255,0.02);
             font-size: 0.75rem;
@@ -144,7 +141,7 @@
     </style>
 </head>
 <body>
-    <div id="version-badge">v11 - LEPES-ESEMENY-LANE</div>
+    <div id="version-badge">v13 - RACS3X3-FUZIO</div>
     <div id="gamepad-container">
         <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
         <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
@@ -154,15 +151,15 @@
         <div id="center-panel">
             <div id="telemetry">Szenzorok: Inaktív</div>
             <div class="compass-grid">
-                <div class="arrow-empty"></div>
-                <div class="arrow" id="dir-n">↑</div>
-                <div class="arrow-empty"></div>
+                <div class="arrow" id="dir-n1">↑</div>
+                <div class="arrow" id="dir-n2">↑</div>
+                <div class="arrow" id="dir-n3">↑</div>
                 <div class="arrow" id="dir-w">←</div>
                 <div class="arrow" id="dir-c">KÖZÉP</div>
                 <div class="arrow" id="dir-e">→</div>
-                <div class="arrow-empty"></div>
-                <div class="arrow" id="dir-s">↓</div>
-                <div class="arrow-empty"></div>
+                <div class="arrow" id="dir-s1">↓</div>
+                <div class="arrow" id="dir-s2">↓</div>
+                <div class="arrow" id="dir-s3">↓</div>
             </div>
         </div>
     </div>
@@ -176,7 +173,7 @@
         // A telefonon a képernyő tetején látszó jelzésből ellenőrizhető,
         // hogy a legfrissebb verzió töltődött-e be (cache-probléma esetén nem).
         // ============================================================
-        const APP_VERSION = "v11 - LEPES-ESEMENY-LANE";
+        const APP_VERSION = "v13 - RACS3X3-FUZIO";
         document.getElementById('version-badge').textContent = APP_VERSION;
         document.title = "Fektetett Szenzoros Gamepad " + APP_VERSION;
         console.log("Betöltve:", APP_VERSION);
@@ -187,28 +184,6 @@
             // Mért nyugalmi zaj std ~0.11, valós kilengés -5.3..+8.4 m/s^2
             TILT_ENTER: 2.5,      // ide kell dőlni, hogy FEL/LE aktiválódjon
             TILT_EXIT: 1.0,       // ide kell visszatérni KÖZÉP-hez
-
-            // --- FORDULÁS (BAL/JOBB) tengely: giroszkóp-integrált relatív yaw ---
-            // Mért: BALRA ~+92 fok, JOBBRA ~-84 fok giro-integrállal
-            TURN_ENTER: 30,       // ide kell fordulni, hogy BAL/JOBB aktiválódjon (stabil be)
-            TURN_EXIT: 12,        // ide kell visszafordulni, hogy KÖZÉP legyen (stabil ki)
-
-            // Fizikai valószerűség-küszöb: körözés nélkül sosem fordulunk el ennél
-            // többet a kalibrált középponthoz képest. Ha a kompasz ennél nagyobb
-            // elmozdulást "mondana", az garantáltan a flip-hiba (~180 fok), nem
-            // valós mozgás - egyszerűen eldobjuk, nem engedjük korrigálni a yawRel-t.
-            PLAUSIBLE_MAX_DELTA: 100,
-
-            // --- "Megállás" (settle) detektálás a fordulás tengelyhez ---
-            // A user specifikáció szerint a stabil bal/jobb csak MEGÁLLÁS UTÁN aktiválódik,
-            // különben menet közben minden fokon átbillenne az állapot.
-            SETTLE_ROT_DEG_S: 8,  // ez alatti szögsebesség számít "megállt"-nak
-            SETTLE_MS: 150,       // ennyi ideig kell megállva maradni a váltáshoz
-
-            // --- Kompasz-korrekció a giroszkóp-drift ellen ---
-            // A kompasz (Ori_Alpha) csak akkor megbízható, ha nem vagyunk nagy dőlésben
-            // ÉS nem "flipped" (lásd Ori_Beta) ÉS a forgás épp nyugodt - lásd handleMotion.
-            COMPASS_SAFE_TILT: 2.0,     // |deltaZ| ez alatt bízunk a kompaszban
 
             // --- LÉPÉS-DETEKTÁLÁS (Acc_Y alapú, kétfázisú lökés-ellenlökés minta) ---
             // A mért adatokból: nyugalmi Acc_Y szórás ~0.13, lépés közben a csúcsok
@@ -242,18 +217,10 @@
 
         // Kalibráció
         let isCalibrated = false;
-        let calibAlpha = 0;
         let baselineAccGZ = 0;
 
-        // Számolt, folytonos yaw (giroszkóp-integrált, kompasszal korrigálva)
-        let yawRel = 0;
-        let lastMotionTime = null;
-
-        // Tengelyenkénti állapotgépek
+        // Tengelyenkénti állapotgép
         let tiltState = 'KOZEP';   // 'KOZEP' | 'FEL' | 'LE'
-        let turnState = 'KOZEP';   // 'KOZEP' | 'BAL' | 'JOBB'  (törzsfordítás - megtartva, de a kijelzőt már nem ez vezérli)
-        let turnCandidate = 'KOZEP';
-        let settleTimer = 0;
         let lastTickTime = null;
 
         // --- LÉPÉS-DETEKTÁLÁS ÉS SÁV-POZÍCIÓ ---
@@ -310,13 +277,10 @@
             }
         });
 
-        // Rövid gördülő puffer a nyers alpha/beta/accG_Z értékekhez.
-        // CÉL: se a kalibráció, se a "flipped" detektálás ne egyetlen pillanatnyi,
-        // esetlegesen zajos mintára épüljön - inkább az utolsó néhány minta
-        // MEDIÁNJÁRA/átlagára, ami kiszűri az egyszeri zajtüskéket.
+        // Rövid gördülő puffer a nyers AccG_Z értékekhez, hogy a kalibráció és a
+        // dőlés-állapot ne egyetlen pillanatnyi, esetlegesen zajos mintára épüljön,
+        // hanem az utolsó néhány minta MEDIÁNJÁRA.
         const HISTORY_LEN = 7;
-        let historyAlpha = [];
-        let historyBeta = [];
         let historyAccGZ = [];
 
         function median(arr) {
@@ -326,56 +290,17 @@
         }
 
         function pushHistory() {
-            if (raw.ori_alpha !== null) {
-                historyAlpha.push(raw.ori_alpha);
-                if (historyAlpha.length > HISTORY_LEN) historyAlpha.shift();
-            }
-            if (raw.ori_beta !== null) {
-                historyBeta.push(raw.ori_beta);
-                if (historyBeta.length > HISTORY_LEN) historyBeta.shift();
-            }
             if (raw.accG_z !== null) {
                 historyAccGZ.push(raw.accG_z);
                 if (historyAccGZ.length > HISTORY_LEN) historyAccGZ.shift();
             }
         }
 
-        // Szűrt "vagyunk-e a flipped ágon" döntés: a legutóbbi minták MEDIÁNJÁRA
-        // épül, nem egyetlen pillanatnyi mintára - egy magányos zajtüske így nem
-        // tud téves flip-detektálást (vagy annak elmulasztását) okozni.
-        function isFlippedFiltered() {
-            return Math.abs(median(historyBeta)) > 150;
-        }
-
         function calibrate() {
-            // Szűrt kalibráció: az utolsó néhány (max HISTORY_LEN) mintából
-            // csak a NEM flipped mintákat vesszük figyelembe, és azok mediánját
-            // használjuk referenciának - nem egyetlen, esetlegesen zajos leolvasást.
-            const goodAlphas = [];
-            const goodAccGZ = [];
-            for (let i = 0; i < historyBeta.length; i++) {
-                if (Math.abs(historyBeta[i]) <= 150) {
-                    if (historyAlpha[i] !== undefined) goodAlphas.push(historyAlpha[i]);
-                    if (historyAccGZ[i] !== undefined) goodAccGZ.push(historyAccGZ[i]);
-                }
-            }
-
-            let a;
-            if (goodAlphas.length > 0) {
-                a = median(goodAlphas);
-            } else {
-                // Az összes puffer-minta flipped volt (pl. épp villódzás közepén
-                // nyomtuk meg a gombot) - normalizáljuk vissza a normál ágra.
-                a = ((raw.ori_alpha || 0) + 180) % 360;
-            }
-
-            calibAlpha = a;
-            baselineAccGZ = goodAccGZ.length > 0 ? median(goodAccGZ) : (raw.accG_z || 0);
-            yawRel = 0;
-            turnState = 'KOZEP';
-            turnCandidate = 'KOZEP';
+            // Szűrt kalibráció: az utolsó néhány minta mediánját használjuk
+            // referenciának, nem egyetlen, esetlegesen zajos leolvasást.
+            baselineAccGZ = historyAccGZ.length > 0 ? median(historyAccGZ) : (raw.accG_z || 0);
             tiltState = 'KOZEP';
-            settleTimer = 0;
             lanePosition = 'KOZEP';
             stepPhase = null;
             stepRefractoryUntil = 0;
@@ -472,17 +397,11 @@
         }
 
         function handleOrientation(event) {
+            // Az Ori_Alpha/Beta/Gamma-t továbbra is naplózzuk (CSV-be), de már
+            // semmilyen állapotot nem vezérelnek - a törzsfordítást kivettük.
             raw.ori_alpha = event.alpha;
             raw.ori_beta = event.beta;
             raw.ori_gamma = event.gamma;
-            pushHistory();
-        }
-
-        function wrap180(deg) {
-            let d = deg % 360;
-            if (d > 180) d -= 360;
-            if (d < -180) d += 360;
-            return d;
         }
 
         function handleMotion(event) {
@@ -504,46 +423,10 @@
             }
             raw.motion_interval = event.interval;
             pushHistory();
-
-            // --- Folytonos yaw: giroszkóp-integrálás ---
-            // Ez a lépés kerüli meg a kompasz gimbal-lock-os ugrásait, mert nyers
-            // szögsebességet integrálunk, nem a levezetett (és instabil) Ori_Alpha-t olvassuk.
-            const now = performance.now();
-            if (isCalibrated && lastMotionTime !== null && raw.rot_alpha !== null) {
-                let dt = (now - lastMotionTime) / 1000;
-                if (dt > 0 && dt < 0.5) {
-                    yawRel += raw.rot_alpha * dt;
-
-                    // Kompasz-korrekció: CSAK akkor bízunk az Ori_Alpha-ban, ha
-                    //  (a) nem vagyunk nagy dőlésben, ÉS
-                    //  (b) az Ori_Beta (SZŰRT, mediánból) NINCS a "flipped" ágon, ÉS
-                    //  (c) a forgás épp NYUGODT (alacsony Rot_Alpha), ÉS
-                    //  (d) a kapott elfordulás FIZIKAILAG ÉSSZERŰ (nem nagyobb, mint
-                    //      amit körözés nélkül valaha is elérhetnénk).
-                    // A (d) pont a legegyszerűbb és legerősebb védelem: nem kell
-                    // kitalálnunk, HOGY ÉS MIÉRT romlott el a kompasz - ha az eredmény
-                    // fizikailag képtelen (pl. 178 fokos "fordulat" körözés nélkül),
-                    // egyszerűen eldobjuk, és a giroszkóp viszi tovább az értéket.
-                    const isCompassFlipped = isFlippedFiltered();
-                    const isYawSettled = Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S;
-                    if (raw.accG_z !== null && raw.ori_alpha !== null && !isCompassFlipped && isYawSettled) {
-                        const deltaZ = Math.abs(median(historyAccGZ) - baselineAccGZ);
-                        if (deltaZ < CONFIG.COMPASS_SAFE_TILT) {
-                            const compassDelta = wrap180(raw.ori_alpha - calibAlpha);
-                            if (Math.abs(compassDelta) < CONFIG.PLAUSIBLE_MAX_DELTA) {
-                                yawRel = compassDelta;
-                            }
-                            // else: eldobjuk - a kompasz "hülyeséget" mondott, a giro-
-                            // integrál folytatja a maga útját tovább, korrekció nélkül.
-                        }
-                    }
-                }
-            }
-            lastMotionTime = now;
         }
 
         // ============================================================
-        // ÁLLAPOTGÉPEK (Schmitt-trigger + megállás-detektálás)
+        // ÁLLAPOTGÉPEK (Schmitt-trigger)
         // ============================================================
         function updateTiltState() {
             if (!isCalibrated || historyAccGZ.length === 0) return;
@@ -559,47 +442,20 @@
             }
         }
 
-        function updateTurnState(dtMs) {
-            if (!isCalibrated || raw.rot_alpha === null) return;
-
-            // 1. Kiszámoljuk, mi lenne az állapot a jelenlegi yawRel alapján (hiszterézissel)
-            if (turnState === 'KOZEP') {
-                if (yawRel > CONFIG.TURN_ENTER) turnCandidate = 'BAL';
-                else if (yawRel < -CONFIG.TURN_ENTER) turnCandidate = 'JOBB';
-                else turnCandidate = 'KOZEP';
-            } else if (turnState === 'BAL') {
-                turnCandidate = (yawRel < CONFIG.TURN_EXIT) ? 'KOZEP' : 'BAL';
-            } else if (turnState === 'JOBB') {
-                turnCandidate = (yawRel > -CONFIG.TURN_EXIT) ? 'KOZEP' : 'JOBB';
-            }
-
-            // 2. "Megállás" detektálás: csak akkor engedjük érvényesülni a váltást,
-            // ha a forgási sebesség egy ideje alacsony (ez a "utáni megállás" feltétel).
-            if (Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S) {
-                settleTimer += dtMs;
-            } else {
-                settleTimer = 0;
-            }
-
-            if (turnCandidate !== turnState && settleTimer >= CONFIG.SETTLE_MS) {
-                turnState = turnCandidate;
-            }
-        }
-
         function updateVisualArrows() {
-            // A lane-pozíció (lépés-alapú BAL/KÖZÉP/JOBB) és a dőlés (FEL/LE) EGYMÁSTÓL
-            // FÜGGETLENÜL jelenik meg - nincs többé "átlós" fúziós állapot. Ha mindkettő
-            // aktív, egyszerre két cella világít (pl. bal ÉS fel egyszerre), nem egy
-            // külön "bal-fel" azonosító.
+            // Valódi 3x3 rács: a sáv-pozíció (BAL/KÖZÉP/JOBB, lépésből) és a dőlés
+            // (FEL/KÖZÉP/LE) EGYÜTTES kombinációja alapján PONTOSAN EGY cella világít.
+            // Sorok (fent->lent): FEL, KÖZÉP, LE. Oszlopok (bal->jobb): BAL, KÖZÉP, JOBB.
             document.querySelectorAll('.arrow').forEach(el => el.classList.remove('active'));
 
-            if (lanePosition === 'KOZEP' && tiltState === 'KOZEP') {
-                document.getElementById('dir-c').classList.add('active');
-            }
-            if (lanePosition === 'BAL') document.getElementById('dir-w').classList.add('active');
-            if (lanePosition === 'JOBB') document.getElementById('dir-e').classList.add('active');
-            if (tiltState === 'FEL') document.getElementById('dir-n').classList.add('active');
-            if (tiltState === 'LE') document.getElementById('dir-s').classList.add('active');
+            const cellMap = {
+                'BAL_FEL': 'dir-n1',   'KOZEP_FEL': 'dir-n2',   'JOBB_FEL': 'dir-n3',
+                'BAL_KOZEP': 'dir-w',  'KOZEP_KOZEP': 'dir-c',  'JOBB_KOZEP': 'dir-e',
+                'BAL_LE': 'dir-s1',    'KOZEP_LE': 'dir-s2',    'JOBB_LE': 'dir-s3'
+            };
+            const key = lanePosition + '_' + tiltState;
+            const id = cellMap[key];
+            if (id) document.getElementById(id).classList.add('active');
         }
 
         function fmt(v, d) {
@@ -614,11 +470,9 @@
             if (!isRunning) return;
 
             const now = performance.now();
-            const dtMs = lastTickTime !== null ? (now - lastTickTime) : 20;
             lastTickTime = now;
 
             updateTiltState();
-            updateTurnState(dtMs); // törzsfordítás - megtartva naplózásra, a kijelzőt már nem ez vezérli
             updateVisualArrows();
 
             const stepAgoMs = lastStepEvent ? (now - lastStepEventTime) : null;
@@ -627,13 +481,11 @@
                 Szenzorok: <b>FUT</b>  Rekordok: ${telemetryData.length}<br>
                 Kalibrálva: ${isCalibrated ? 'igen' : '<b>nem</b>'}<br>
                 --- nyers ---<br>
-                alpha: ${fmt(raw.ori_alpha)}&deg;  AccG_Z: ${fmt(raw.accG_z,2)}  Acc_Y: ${fmt(raw.acc_y,2)}<br>
-                Rot_Alpha: ${fmt(raw.rot_alpha)}&deg;/s<br>
+                AccG_Z: ${fmt(raw.accG_z,2)}  Acc_Y: ${fmt(raw.acc_y,2)}<br>
                 --- számolt ---<br>
                 Dőlés állapot: <b>${tiltState}</b><br>
                 Sáv-pozíció (lépésből): <b>${lanePosition}</b><br>
-                Utolsó lépés: <b>${lastStepEvent || '--'}</b> ${stepAgoMs !== null ? '(' + (stepAgoMs/1000).toFixed(1) + 's)' : ''}<br>
-                (törzsfordítás - naplózva: ${turnState}, yaw=${fmt(yawRel)}&deg;)
+                Utolsó lépés: <b>${lastStepEvent || '--'}</b> ${stepAgoMs !== null ? '(' + (stepAgoMs/1000).toFixed(1) + 's)' : ''}
             `;
 
             telemetryData.push({
@@ -643,9 +495,7 @@
                 accG_x: raw.accG_x, accG_y: raw.accG_y, accG_z: raw.accG_z,
                 rot_alpha: raw.rot_alpha, rot_beta: raw.rot_beta, rot_gamma: raw.rot_gamma,
                 motion_interval: raw.motion_interval,
-                yaw_rel: yawRel,
                 tilt_state: tiltState,
-                turn_state: turnState,
                 lane_position: lanePosition,
                 step_event: (lastStepEvent && stepAgoMs !== null && stepAgoMs < 20) ? lastStepEvent : '',
                 btn_G1: buttonStates.G1,
@@ -668,7 +518,7 @@
             const recordCount = telemetryData.length;
 
             let csvRows = [];
-            csvRows.push("Idobelyeg,Ori_Alpha,Ori_Beta,Ori_Gamma,Acc_X,Acc_Y,Acc_Z,AccG_X,AccG_Y,AccG_Z,Rot_Alpha,Rot_Beta,Rot_Gamma,Motion_Interval,Yaw_Rel,Tilt_State,Turn_State,Lane_Position,Step_Event,G1_Kalib,G2_Start,G3_Save,G4_Action");
+            csvRows.push("Idobelyeg,Ori_Alpha,Ori_Beta,Ori_Gamma,Acc_X,Acc_Y,Acc_Z,AccG_X,AccG_Y,AccG_Z,Rot_Alpha,Rot_Beta,Rot_Gamma,Motion_Interval,Tilt_State,Lane_Position,Step_Event,G1_Kalib,G2_Start,G3_Save,G4_Action");
 
             telemetryData.forEach(row => {
                 csvRows.push([
@@ -678,8 +528,7 @@
                     csvVal(row.accG_x), csvVal(row.accG_y), csvVal(row.accG_z),
                     csvVal(row.rot_alpha), csvVal(row.rot_beta), csvVal(row.rot_gamma),
                     csvVal(row.motion_interval),
-                    csvVal(row.yaw_rel && row.yaw_rel.toFixed ? row.yaw_rel.toFixed(2) : row.yaw_rel),
-                    row.tilt_state, row.turn_state, row.lane_position, row.step_event,
+                    row.tilt_state, row.lane_position, row.step_event,
                     row.btn_G1, row.btn_G2, row.btn_G3, row.btn_G4
                 ].join(','));
             });
@@ -763,65 +612,53 @@
             saveCSVData();
             await wait(1000);
 
-            await speak("Dőlj hátra a telefonnal.");
-            await wait(3000);
+            await speak("Nézz fel.");
+            await wait(2500);
 
             await speak("Állj egyenesen.");
             await wait(2000);
 
-            await speak("Dőlj előre a telefonnal.");
-            await wait(3000);
+            await speak("Nézz le.");
+            await wait(2500);
 
             await speak("Állj egyenesen.");
-            await wait(2000);
-
-            await speak("Fordulj balra, és ott állj meg.");
-            await wait(3000);
-
-            await speak("Fordulj vissza középre.");
-            await wait(2000);
-
-            await speak("Fordulj jobbra, és ott állj meg.");
-            await wait(3000);
-
-            await speak("Fordulj vissza középre.");
             await wait(2000);
 
             await speak("Lépj balra.");
             await wait(2000);
 
-            await speak("Lépj vissza.");
+            await speak("Nézz fel.");
+            await wait(2500);
+
+            await speak("Állj egyenesen.");
+            await wait(2000);
+
+            await speak("Nézz le.");
+            await wait(2500);
+
+            await speak("Állj egyenesen.");
             await wait(2000);
 
             await speak("Lépj jobbra.");
             await wait(2000);
 
-            await speak("Lépj vissza.");
-            await wait(2000);
-
-            await speak("Még egyszer. Lépj balra.");
-            await wait(2000);
-
-            await speak("Lépj vissza.");
-            await wait(2000);
-
             await speak("Lépj jobbra.");
             await wait(2000);
 
-            await speak("Lépj vissza.");
+            await speak("Nézz fel.");
+            await wait(2500);
+
+            await speak("Állj egyenesen.");
             await wait(2000);
 
-            await speak("Utoljára, gyorsabban. Lépj balra.");
-            await wait(1200);
+            await speak("Nézz le.");
+            await wait(2500);
 
-            await speak("Vissza.");
-            await wait(1200);
+            await speak("Állj egyenesen.");
+            await wait(2000);
 
-            await speak("Lépj jobbra.");
-            await wait(1200);
-
-            await speak("Vissza.");
-            await wait(1200);
+            await speak("Lépj balra.");
+            await wait(2000);
 
             await speak("Állj meg. Nyomd meg a CSV mentés gombot a napló elmentéséhez.");
         }
