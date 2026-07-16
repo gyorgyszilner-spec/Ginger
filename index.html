@@ -1,728 +1,702 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v8 - 5-ALLAPOT</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            margin: 0;
-            padding: 0;
-        }
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #121212;
-            font-family: sans-serif;
-            color: white;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mozgásvezérelt sportkocsi</title>
+<style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+    html, body { width: 100%; background-color: #050208; font-family: sans-serif; color: white; }
 
-        #gamepad-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 10px;
-        }
+    /* ---- vezérlő panel ---- */
+    #gamepad-container {
+        position: relative;
+        width: 100%;
+        height: 260px;
+        background-color: #121212;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 10px;
+    }
+    .action-btn {
+        position: absolute;
+        width: 75px; height: 75px;
+        border-radius: 50%;
+        background-color: rgba(255,255,255,0.12);
+        border: 2px solid rgba(255,255,255,0.4);
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        font-weight: bold; font-size: 0.8rem; color: white; text-align: center;
+        z-index: 10; line-height: 1.1;
+    }
+    .action-btn span { font-size: 0.65rem; opacity: 0.7; font-weight: normal; }
+    #btn-tl { top: 15px; left: 15px; border-color: #ffb74d; }
+    #btn-tr { top: 15px; right: 15px; border-color: #4caf50; }
+    #btn-br { bottom: 15px; right: 15px; border-color: #ec407a; }
+    .action-btn.active { background-color: rgba(255,255,255,0.3); transform: scale(0.95); }
+    #btn-tr.running { background-color: rgba(76,175,80,0.4); }
 
-        .action-btn {
-            position: absolute;
-            width: 75px;
-            height: 75px;
-            border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.12);
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            font-size: 0.8rem;
-            color: white;
-            text-align: center;
-            z-index: 10;
-            line-height: 1.1;
-        }
-        .action-btn span {
-            font-size: 0.65rem;
-            opacity: 0.7;
-            font-weight: normal;
-        }
+    #center-panel {
+        display: flex; flex-direction: row; justify-content: center; align-items: center;
+        gap: 20px; width: 100%; max-width: 640px; z-index: 5;
+    }
+    #telemetry {
+        font-family: monospace; font-size: 0.62rem; background: rgba(0,0,0,0.6);
+        padding: 10px; border-radius: 5px; width: 250px; text-align: left;
+        border: 1px solid rgba(255,255,255,0.1); line-height: 1.5;
+    }
+    #telemetry b { color: #ffca28; }
 
-        #btn-tl { top: 15px; left: 15px; border-color: #ffb74d; }
-        #btn-tr { top: 15px; right: 15px; border-color: #4caf50; }
-        #btn-bl { bottom: 15px; left: 15px; border-color: #29b6f6; }
-        #btn-br { bottom: 15px; right: 15px; border-color: #ec407a; }
+    /* csak fel/le/balra/jobbra - kereszt elrendezés, átlók nélkül */
+    .compass-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        gap: 8px; width: 150px; height: 150px; flex-shrink: 0;
+    }
+    .arrow {
+        display: flex; justify-content: center; align-items: center;
+        background-color: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 6px; font-size: 1.2rem; color: rgba(255,255,255,0.2);
+    }
+    .arrow.active { background-color: #00e676; color: #121212; font-weight: bold; box-shadow: 0 0 12px #00e676; }
+    #dir-n { grid-column: 2; grid-row: 1; }
+    #dir-w { grid-column: 1; grid-row: 2; }
+    #dir-c { grid-column: 2; grid-row: 2; background-color: rgba(255,255,255,0.02); font-size: 0.75rem; }
+    #dir-e { grid-column: 3; grid-row: 2; }
+    #dir-s { grid-column: 2; grid-row: 3; }
+    #dir-c.active { background-color: #2196f3; color: white; box-shadow: 0 0 12px #2196f3; }
 
-        .action-btn.active {
-            background-color: rgba(255, 255, 255, 0.3);
-            transform: scale(0.95);
-        }
-        #btn-tr.running { background-color: rgba(76, 175, 80, 0.4); }
+    #version-badge {
+        position: fixed; top: 4px; left: 50%; transform: translateX(-50%);
+        font-family: monospace; font-size: 0.7rem; color: #ffca28;
+        background: rgba(0,0,0,0.5); padding: 2px 10px; border-radius: 4px;
+        z-index: 100; pointer-events: none;
+    }
 
-        #center-panel {
-            display: flex;
-            flex-direction: row;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            width: 100%;
-            max-width: 640px;
-            z-index: 5;
-        }
-
-        #telemetry {
-            font-family: monospace;
-            font-size: 0.62rem;
-            background: rgba(0,0,0,0.6);
-            padding: 10px;
-            border-radius: 5px;
-            width: 250px;
-            text-align: left;
-            border: 1px solid rgba(255,255,255,0.1);
-            line-height: 1.5;
-        }
-        #telemetry b { color: #ffca28; }
-
-        .compass-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            gap: 8px;
-            width: 150px;
-            height: 150px;
-            flex-shrink: 0;
-        }
-        .arrow {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 6px;
-            font-size: 1.2rem;
-            color: rgba(255,255,255,0.2);
-        }
-        .arrow.active {
-            background-color: #00e676;
-            color: #121212;
-            font-weight: bold;
-            box-shadow: 0 0 12px #00e676;
-        }
-        #dir-c {
-            background-color: rgba(255,255,255,0.02);
-            font-size: 0.75rem;
-        }
-        #dir-c.active {
-            background-color: #2196f3;
-            color: white;
-            box-shadow: 0 0 12px #2196f3;
-        }
-        #version-badge {
-            position: fixed;
-            top: 4px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-family: monospace;
-            font-size: 0.7rem;
-            color: #ffca28;
-            background: rgba(0,0,0,0.5);
-            padding: 2px 10px;
-            border-radius: 4px;
-            z-index: 100;
-            pointer-events: none;
-        }
-    </style>
+    /* ---- játék ---- */
+    #game-section { position: relative; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: #050208; }
+    canvas { display: block; max-width: 100%; max-height: 100%; background: #000; box-shadow: 0 0 40px rgba(255,90,50,.15); }
+    #hud { position: absolute; top: 14px; left: 14px; font-size: 13px; letter-spacing: .5px; background: rgba(10,6,14,.55); padding: 8px 12px; border-radius: 6px; }
+    #hud b { color: #ff5a3c; }
+    #weather { position: absolute; top: 14px; right: 14px; display: flex; gap: 6px; }
+    .wbtn { background: rgba(10,6,14,.55); border: 1px solid rgba(255,255,255,.15); color: #eee; font-size: 12px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+    .wbtn.active { background: #ff5a3c; border-color: #ff5a3c; color: #1a0a06; font-weight: 600; }
+    #help { position: absolute; bottom: 14px; left: 14px; font-size: 12px; color: #bbb; background: rgba(10,6,14,.5); padding: 8px 12px; border-radius: 6px; }
+</style>
 </head>
 <body>
-    <div id="version-badge">v8 - 5-ALLAPOT</div>
-    <div id="gamepad-container">
-        <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
-        <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
-        <div class="action-btn" id="btn-bl">G3<br><span>CSV MENTÉS</span></div>
-        <div class="action-btn" id="btn-br">G4<br><span>AKCIÓ</span></div>
+<div id="version-badge">v10 - VEZERLO+JATEK</div>
 
-        <div id="center-panel">
-            <div id="telemetry">Szenzorok: Inaktív</div>
-            <div class="compass-grid">
-                <div class="arrow" id="dir-nw">↖</div>
-                <div class="arrow" id="dir-n">↑</div>
-                <div class="arrow" id="dir-ne">↗</div>
-                <div class="arrow" id="dir-w">←</div>
-                <div class="arrow" id="dir-c">KÖZÉP</div>
-                <div class="arrow" id="dir-e">→</div>
-                <div class="arrow" id="dir-sw">↙</div>
-                <div class="arrow" id="dir-s">↓</div>
-                <div class="arrow" id="dir-se">↘</div>
-            </div>
+<!-- ============ VEZÉRLŐ PANEL ============ -->
+<div id="gamepad-container">
+    <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
+    <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
+    <div class="action-btn" id="btn-br">G4<br><span>AKCIÓ</span></div>
+
+    <div id="center-panel">
+        <div id="telemetry">Szenzorok: Inaktív</div>
+        <div class="compass-grid">
+            <div class="arrow" id="dir-n">↑</div>
+            <div class="arrow" id="dir-w">←</div>
+            <div class="arrow" id="dir-c">KÖZÉP</div>
+            <div class="arrow" id="dir-e">→</div>
+            <div class="arrow" id="dir-s">↓</div>
         </div>
     </div>
+</div>
 
-    <script>
-        // ============================================================
-        // BEÁLLÍTÁSOK (a nyers-adat felvételek alapján kalibrálva)
-        // ============================================================
-        // ============================================================
-        // VERZIÓSZÁM - EZT NÖVELD MINDEN MÓDOSÍTÁSNÁL!
-        // A telefonon a képernyő tetején látszó jelzésből ellenőrizhető,
-        // hogy a legfrissebb verzió töltődött-e be (cache-probléma esetén nem).
-        // ============================================================
-        const APP_VERSION = "v8 - 5-ALLAPOT";
-        document.getElementById('version-badge').textContent = APP_VERSION;
-        document.title = "Fektetett Szenzoros Gamepad " + APP_VERSION;
-        console.log("Betöltve:", APP_VERSION);
-        document.getElementById('telemetry').textContent = "Szenzorok: Inaktív (" + APP_VERSION + ")";
+<!-- ============ JÁTÉK ============ -->
+<div id="game-section">
+    <canvas id="game" width="1000" height="600"></canvas>
+    <div id="hud">sebesség: <b id="speedVal">0</b> km/h</div>
+    <div id="weather">
+        <button class="wbtn active" data-w="sunny">napos</button>
+        <button class="wbtn" data-w="sunset">naplemente</button>
+        <button class="wbtn" data-w="rainy">esős</button>
+        <button class="wbtn" data-w="snowy">havas</button>
+    </div>
+    <div id="help">gyorsítás: hátradőlés &nbsp; lassítás: előredőlés &nbsp; kanyar: dőlj/fordulj balra-jobbra<br>(billentyűzettel is: ↑↓←→ / WASD)</div>
+</div>
 
-        const CONFIG = {
-            // --- DŐLÉS (FEL/LE) tengely: AccG_Z alapján ---
-            // Mért nyugalmi zaj std ~0.11, valós kilengés -5.3..+8.4 m/s^2
-            TILT_ENTER: 2.5,      // ide kell dőlni, hogy FEL/LE aktiválódjon
-            TILT_EXIT: 1.0,       // ide kell visszatérni KÖZÉP-hez
+<script>
+// ============================================================
+// 1) MOZGÁSÉRZÉKELŐ VEZÉRLŐ (kalibráció + fel/le/balra/jobbra állapotgép)
+// ============================================================
+const APP_VERSION = "v10 - VEZERLO+JATEK";
+document.getElementById('version-badge').textContent = APP_VERSION;
+document.title = "Mozgásvezérelt sportkocsi " + APP_VERSION;
 
-            // --- FORDULÁS (BAL/JOBB) tengely: giroszkóp-integrált relatív yaw ---
-            // Mért: BALRA ~+92 fok, JOBBRA ~-84 fok giro-integrállal
-            TURN_ENTER: 30,       // ide kell fordulni, hogy BAL/JOBB aktiválódjon (stabil be)
-            TURN_EXIT: 12,        // ide kell visszafordulni, hogy KÖZÉP legyen (stabil ki)
+const CONFIG = {
+    TILT_ENTER: 2.5,
+    TILT_EXIT: 1.0,
+    TURN_ENTER: 30,
+    TURN_EXIT: 12,
+    PLAUSIBLE_MAX_DELTA: 100,
+    SETTLE_ROT_DEG_S: 8,
+    SETTLE_MS: 150,
+    COMPASS_SAFE_TILT: 2.0
+};
 
-            // Fizikai valószerűség-küszöb: körözés nélkül sosem fordulunk el ennél
-            // többet a kalibrált középponthoz képest. Ha a kompasz ennél nagyobb
-            // elmozdulást "mondana", az garantáltan a flip-hiba (~180 fok), nem
-            // valós mozgás - egyszerűen eldobjuk, nem engedjük korrigálni a yawRel-t.
-            PLAUSIBLE_MAX_DELTA: 100,
+let isRunning = false;
+let recordIntervalId = null;
+let guideStarted = false;
+let buttonStates = { G1: 0, G2: 0, G4: 0 };
 
-            // --- "Megállás" (settle) detektálás a fordulás tengelyhez ---
-            // A user specifikáció szerint a stabil bal/jobb csak MEGÁLLÁS UTÁN aktiválódik,
-            // különben menet közben minden fokon átbillenne az állapot.
-            SETTLE_ROT_DEG_S: 8,  // ez alatti szögsebesség számít "megállt"-nak
-            SETTLE_MS: 150,       // ennyi ideig kell megállva maradni a váltáshoz
+let raw = {
+    ori_alpha: null, ori_beta: null, ori_gamma: null,
+    acc_x: null, acc_y: null, acc_z: null,
+    accG_x: null, accG_y: null, accG_z: null,
+    rot_alpha: null, rot_beta: null, rot_gamma: null,
+    motion_interval: null
+};
 
-            // --- Kompasz-korrekció a giroszkóp-drift ellen ---
-            // A kompasz (Ori_Alpha) csak akkor megbízható, ha nem vagyunk nagy dőlésben
-            // ÉS nem "flipped" (lásd Ori_Beta) ÉS a forgás épp nyugodt - lásd handleMotion.
-            COMPASS_SAFE_TILT: 2.0     // |deltaZ| ez alatt bízunk a kompaszban
-        };
+let isCalibrated = false;
+let calibAlpha = 0;
+let baselineAccGZ = 0;
+let yawRel = 0;
+let lastMotionTime = null;
 
-        // ============================================================
-        // ÁLLAPOT
-        // ============================================================
-        let telemetryData = [];
-        let isRunning = false;
-        let recordIntervalId = null;
-        let guideStarted = false;
+let tiltState = 'KOZEP';
+let turnState = 'KOZEP';
+let turnCandidate = 'KOZEP';
+let settleTimer = 0;
+let lastTickTime = null;
 
-        let buttonStates = { G1: 0, G2: 0, G3: 0, G4: 0 };
+// ezt olvassa a játék: 'KOZEP' | 'FEL' | 'LE' | 'BAL' | 'JOBB'
+let motionState = 'KOZEP';
 
-        // Nyers szenzorértékek
-        let raw = {
-            ori_alpha: null, ori_beta: null, ori_gamma: null,
-            acc_x: null, acc_y: null, acc_z: null,
-            accG_x: null, accG_y: null, accG_z: null,
-            rot_alpha: null, rot_beta: null, rot_gamma: null,
-            motion_interval: null
-        };
+const telemetryEl = document.getElementById('telemetry');
+const btnTR = document.getElementById('btn-tr');
 
-        // Kalibráció
-        let isCalibrated = false;
-        let calibAlpha = 0;
-        let baselineAccGZ = 0;
+const setupButton = (elementId, key, callbackPress) => {
+    const btn = document.getElementById(elementId);
+    btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        btn.classList.add('active');
+        buttonStates[key] = 1;
+        if (guideWaitingForAny) startSensors();
+        notifyButtonPress(key);
+        if (callbackPress) callbackPress();
+    }, { passive: false });
+    btn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        btn.classList.remove('active');
+        buttonStates[key] = 0;
+    }, { passive: false });
+    // asztali teszthez egérrel is működjön
+    btn.addEventListener('mousedown', (e) => {
+        btn.classList.add('active');
+        buttonStates[key] = 1;
+        if (guideWaitingForAny) startSensors();
+        notifyButtonPress(key);
+        if (callbackPress) callbackPress();
+    });
+    btn.addEventListener('mouseup', () => { btn.classList.remove('active'); buttonStates[key] = 0; });
+};
 
-        // Számolt, folytonos yaw (giroszkóp-integrált, kompasszal korrigálva)
-        let yawRel = 0;
-        let lastMotionTime = null;
+setupButton('btn-tl', 'G1', () => { calibrate(); });
+setupButton('btn-tr', 'G2', () => { startSensors(); });
+setupButton('btn-br', 'G4', null);
 
-        // Tengelyenkénti állapotgépek
-        let tiltState = 'KOZEP';   // 'KOZEP' | 'FEL' | 'LE'
-        let turnState = 'KOZEP';   // 'KOZEP' | 'BAL' | 'JOBB'
-        let turnCandidate = 'KOZEP';
-        let settleTimer = 0;
-        let lastTickTime = null;
+window.addEventListener('load', () => {
+    if (!guideStarted) { guideStarted = true; runGuidedSequence(); }
+});
 
-        const telemetryEl = document.getElementById('telemetry');
-        const btnTR = document.getElementById('btn-tr');
+const HISTORY_LEN = 7;
+let historyAlpha = [], historyBeta = [], historyAccGZ = [];
 
-        // ============================================================
-        // GOMBOK
-        // ============================================================
-        const setupButton = (elementId, key, callbackPress) => {
-            const btn = document.getElementById(elementId);
+function median(arr) {
+    if (arr.length === 0) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+}
+function pushHistory() {
+    if (raw.ori_alpha !== null) { historyAlpha.push(raw.ori_alpha); if (historyAlpha.length > HISTORY_LEN) historyAlpha.shift(); }
+    if (raw.ori_beta !== null) { historyBeta.push(raw.ori_beta); if (historyBeta.length > HISTORY_LEN) historyBeta.shift(); }
+    if (raw.accG_z !== null) { historyAccGZ.push(raw.accG_z); if (historyAccGZ.length > HISTORY_LEN) historyAccGZ.shift(); }
+}
+function isFlippedFiltered() { return Math.abs(median(historyBeta)) > 150; }
 
-            btn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                btn.classList.add('active');
-                buttonStates[key] = 1;
+function calibrate() {
+    const goodAlphas = [], goodAccGZ = [];
+    for (let i = 0; i < historyBeta.length; i++) {
+        if (Math.abs(historyBeta[i]) <= 150) {
+            if (historyAlpha[i] !== undefined) goodAlphas.push(historyAlpha[i]);
+            if (historyAccGZ[i] !== undefined) goodAccGZ.push(historyAccGZ[i]);
+        }
+    }
+    let a = goodAlphas.length > 0 ? median(goodAlphas) : ((raw.ori_alpha || 0) + 180) % 360;
+    calibAlpha = a;
+    baselineAccGZ = goodAccGZ.length > 0 ? median(goodAccGZ) : (raw.accG_z || 0);
+    yawRel = 0;
+    turnState = 'KOZEP'; turnCandidate = 'KOZEP'; tiltState = 'KOZEP';
+    settleTimer = 0;
+    isCalibrated = true;
+}
 
-                if (guideWaitingForAny) {
-                    startSensors();
+async function startSensors() {
+    if (isRunning) return;
+    try {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            const p1 = await DeviceOrientationEvent.requestPermission();
+            if (p1 !== 'granted') { alert("Szenzor hozzáférés elutasítva (dőlés)!"); return; }
+        }
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            const p2 = await DeviceMotionEvent.requestPermission();
+            if (p2 !== 'granted') { alert("Szenzor hozzáférés elutasítva (gyorsulás)!"); return; }
+        }
+        window.addEventListener('deviceorientation', handleOrientation);
+        window.addEventListener('devicemotion', handleMotion);
+        isRunning = true;
+        btnTR.classList.add('running');
+        btnTR.innerHTML = "G2<br><span>FUT...</span>";
+        recordIntervalId = setInterval(sensorTick, 20);
+    } catch (err) {
+        alert("Szenzor hiba: " + err);
+    }
+}
+
+function handleOrientation(event) {
+    raw.ori_alpha = event.alpha; raw.ori_beta = event.beta; raw.ori_gamma = event.gamma;
+    pushHistory();
+}
+function wrap180(deg) { let d = deg % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; }
+
+function handleMotion(event) {
+    if (event.acceleration) { raw.acc_x = event.acceleration.x; raw.acc_y = event.acceleration.y; raw.acc_z = event.acceleration.z; }
+    if (event.accelerationIncludingGravity) { raw.accG_x = event.accelerationIncludingGravity.x; raw.accG_y = event.accelerationIncludingGravity.y; raw.accG_z = event.accelerationIncludingGravity.z; }
+    if (event.rotationRate) { raw.rot_alpha = event.rotationRate.alpha; raw.rot_beta = event.rotationRate.beta; raw.rot_gamma = event.rotationRate.gamma; }
+    raw.motion_interval = event.interval;
+    pushHistory();
+
+    const now = performance.now();
+    if (isCalibrated && lastMotionTime !== null && raw.rot_alpha !== null) {
+        let dt = (now - lastMotionTime) / 1000;
+        if (dt > 0 && dt < 0.5) {
+            yawRel += raw.rot_alpha * dt;
+            const isCompassFlipped = isFlippedFiltered();
+            const isYawSettled = Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S;
+            if (raw.accG_z !== null && raw.ori_alpha !== null && !isCompassFlipped && isYawSettled) {
+                const deltaZ = Math.abs(median(historyAccGZ) - baselineAccGZ);
+                if (deltaZ < CONFIG.COMPASS_SAFE_TILT) {
+                    const compassDelta = wrap180(raw.ori_alpha - calibAlpha);
+                    if (Math.abs(compassDelta) < CONFIG.PLAUSIBLE_MAX_DELTA) yawRel = compassDelta;
                 }
-
-                notifyButtonPress(key);
-                if (key !== 'G3' && callbackPress) callbackPress();
-            }, {passive: false});
-
-            btn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                btn.classList.remove('active');
-                buttonStates[key] = 0;
-                if (key === 'G3' && callbackPress) callbackPress();
-            }, {passive: false});
-        };
-
-        setupButton('btn-tl', 'G1', () => { calibrate(); });
-        setupButton('btn-tr', 'G2', () => { startSensors(); });
-        setupButton('btn-bl', 'G3', () => { saveCSVData(); });
-        setupButton('btn-br', 'G4', null);
-
-        window.addEventListener('load', () => {
-            if (!guideStarted) {
-                guideStarted = true;
-                runGuidedSequence();
             }
+        }
+    }
+    lastMotionTime = now;
+}
+
+function updateTiltState() {
+    if (!isCalibrated || historyAccGZ.length === 0) return;
+    const deltaZ = median(historyAccGZ) - baselineAccGZ;
+    if (tiltState === 'KOZEP') {
+        if (deltaZ > CONFIG.TILT_ENTER) tiltState = 'FEL';
+        else if (deltaZ < -CONFIG.TILT_ENTER) tiltState = 'LE';
+    } else if (tiltState === 'FEL') {
+        if (deltaZ < CONFIG.TILT_EXIT) tiltState = 'KOZEP';
+    } else if (tiltState === 'LE') {
+        if (deltaZ > -CONFIG.TILT_EXIT) tiltState = 'KOZEP';
+    }
+}
+
+function updateTurnState(dtMs) {
+    if (!isCalibrated || raw.rot_alpha === null) return;
+    if (turnState === 'KOZEP') {
+        if (yawRel > CONFIG.TURN_ENTER) turnCandidate = 'BAL';
+        else if (yawRel < -CONFIG.TURN_ENTER) turnCandidate = 'JOBB';
+        else turnCandidate = 'KOZEP';
+    } else if (turnState === 'BAL') {
+        turnCandidate = (yawRel < CONFIG.TURN_EXIT) ? 'KOZEP' : 'BAL';
+    } else if (turnState === 'JOBB') {
+        turnCandidate = (yawRel > -CONFIG.TURN_EXIT) ? 'KOZEP' : 'JOBB';
+    }
+    if (Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S) settleTimer += dtMs; else settleTimer = 0;
+    if (turnCandidate !== turnState && settleTimer >= CONFIG.SETTLE_MS) turnState = turnCandidate;
+}
+
+function combinedStateId() {
+    // csak 5 állapot: KOZEP + FEL/LE/BAL/JOBB - nincs átló
+    if (turnState === 'BAL') return 'BAL';
+    if (turnState === 'JOBB') return 'JOBB';
+    if (tiltState === 'FEL') return 'FEL';
+    if (tiltState === 'LE') return 'LE';
+    return 'KOZEP';
+}
+
+function updateVisualArrows(stateId) {
+    document.querySelectorAll('.arrow').forEach(el => el.classList.remove('active'));
+    const map = { 'KOZEP': 'dir-c', 'FEL': 'dir-n', 'LE': 'dir-s', 'BAL': 'dir-w', 'JOBB': 'dir-e' };
+    const id = map[stateId];
+    if (id) document.getElementById(id).classList.add('active');
+}
+
+function fmt(v, d) { return (v === null || v === undefined || isNaN(v)) ? '--' : v.toFixed(d === undefined ? 1 : d); }
+
+function sensorTick() {
+    if (!isRunning) return;
+    const now = performance.now();
+    const dtMs = lastTickTime !== null ? (now - lastTickTime) : 20;
+    lastTickTime = now;
+
+    updateTiltState();
+    updateTurnState(dtMs);
+    const stateId = combinedStateId();
+    motionState = stateId;
+    updateVisualArrows(stateId);
+
+    telemetryEl.innerHTML = `
+        Szenzorok: <b>FUT</b><br>
+        Kalibrálva: ${isCalibrated ? 'igen' : '<b>nem</b>'}<br>
+        yawRel: <b>${fmt(yawRel)}</b>&deg;<br>
+        Dőlés: <b>${tiltState}</b>&nbsp; Fordulás: <b>${turnState}</b><br>
+        Állapot: <b>${stateId}</b>
+    `;
+}
+
+// ---- hangos vezetés a kalibrációhoz (csak fel/le/balra/jobbra) ----
+let guideResolveButton = null, guideWaitingForAny = false, guideWaitingForKey = null;
+
+function speak(text) {
+    return new Promise((resolve) => {
+        if (!('speechSynthesis' in window)) { resolve(); return; }
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'hu-HU'; utter.rate = 1;
+        utter.onend = resolve; utter.onerror = resolve;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utter);
+    });
+}
+function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function waitForButton(key) {
+    return new Promise((resolve) => {
+        if (key === 'any') { guideWaitingForAny = true; guideWaitingForKey = null; }
+        else { guideWaitingForAny = false; guideWaitingForKey = key; }
+        guideResolveButton = () => { guideWaitingForAny = false; guideWaitingForKey = null; guideResolveButton = null; resolve(); };
+    });
+}
+function notifyButtonPress(key) {
+    if (guideResolveButton && (guideWaitingForAny || guideWaitingForKey === key)) guideResolveButton();
+}
+
+async function runGuidedSequence() {
+    await speak("Állj fel, legyen körülötted legalább egy méter szabad hely. Ha készen állsz, nyomj meg bármelyik gombot.");
+    await waitForButton('any');
+
+    await speak("Tartsd a telefont egyenesen magad előtt, majd nyomd meg a kalibráló gombot.");
+    await waitForButton('G1');
+    await wait(500);
+
+    await speak("Dőlj hátra a telefonnal. Ez lesz a gyorsítás.");
+    await wait(3000);
+
+    await speak("Állj egyenesen.");
+    await wait(2000);
+
+    await speak("Dőlj előre a telefonnal. Ez lesz a lassítás.");
+    await wait(3000);
+
+    await speak("Állj egyenesen.");
+    await wait(2000);
+
+    await speak("Fordulj balra, és ott állj meg.");
+    await wait(3000);
+
+    await speak("Fordulj vissza középre.");
+    await wait(2000);
+
+    await speak("Fordulj jobbra, és ott állj meg.");
+    await wait(3000);
+
+    await speak("Fordulj vissza középre.");
+    await wait(2000);
+
+    await speak("Kész a kalibráció. Görgess le, és indulhat a vezetés.");
+}
+
+// ============================================================
+// 2) A JÁTÉK - pszeudo-3D vezethető pálya
+// ============================================================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const WIDTH = canvas.width, HEIGHT = canvas.height;
+
+const segmentLength = 200;
+const roadWidth = 1600;
+const rumbleLength = 3;
+const drawDistance = 180;
+const cameraHeight = 1100;
+const fieldOfView = 100;
+const cameraDepth = 1 / Math.tan((fieldOfView / 2) * Math.PI / 180);
+const maxSpeed = segmentLength * 60;
+const accel = maxSpeed / 2.2;
+const braking = -maxSpeed * 1.4;
+const decel = -maxSpeed / 3.2;
+const offRoadDecel = -maxSpeed / 2.4;
+const offRoadLimit = maxSpeed * 0.5;
+const centrifugal = 0.28;
+
+const COLORS = {
+    LIGHT: { road: '#6b6b70', grass: '#2f6b3a', rumble: '#d9d9d9', lane: '#d9d9d9' },
+    DARK: { road: '#636368', grass: '#2a5f34', rumble: '#b3312c', lane: null }
+};
+const WEATHER = {
+    sunny: { sky: ['#8fd3f4', '#e7f3ff'], tint: 'rgba(255,244,214,0.08)', particles: null },
+    sunset: { sky: ['#2b1050', '#ff7a45', '#ffd27a'], tint: 'rgba(255,140,90,0.16)', particles: null },
+    rainy: { sky: ['#4a5560', '#8a95a0'], tint: 'rgba(170,190,205,0.14)', particles: 'rain' },
+    snowy: { sky: ['#c9d6e0', '#eef3f6'], tint: 'rgba(255,255,255,0.16)', particles: 'snow' }
+};
+let currentWeather = 'sunny';
+
+let segments = [];
+function addSegment(curve) {
+    const n = segments.length;
+    segments.push({
+        index: n,
+        p1: { world: { z: n * segmentLength }, screen: {} },
+        p2: { world: { z: (n + 1) * segmentLength }, screen: {} },
+        curve: curve,
+        color: (Math.floor(n / rumbleLength) % 2) ? COLORS.DARK : COLORS.LIGHT,
+        sprites: []
+    });
+}
+function easeIn(a, b, p) { return a + (b - a) * p * p; }
+function easeInOut(a, b, p) { return a + (b - a) * ((-Math.cos(p * Math.PI) / 2) + 0.5); }
+function addRoad(enter, hold, leave, curve) {
+    for (let i = 0; i < enter; i++) addSegment(easeIn(0, curve, i / enter));
+    for (let i = 0; i < hold; i++) addSegment(curve);
+    for (let i = 0; i < leave; i++) addSegment(easeInOut(curve, 0, i / leave));
+}
+function addSprite(segIndex, offset, w, h, color) { segments[segIndex % segments.length].sprites.push({ offset, w, h, color }); }
+
+function buildTrack() {
+    addRoad(60, 40, 0, 0);
+    addRoad(40, 60, 60, 4.2);
+    addRoad(60, 40, 0, 0);
+    addRoad(40, 60, 60, -4.2);
+    addRoad(60, 40, 0, 0);
+    addRoad(30, 40, 30, 7);
+    addRoad(30, 40, 30, -7);
+    addRoad(80, 40, 0, 0);
+    for (let i = 10; i < segments.length; i += 14) {
+        const side = ((i / 14) | 0) % 2 === 0 ? -1 : 1;
+        addSprite(i, side * 1.35, 90, 220, '#1c5a2e');
+    }
+    for (let i = 25; i < segments.length; i += 55) addSprite(i, 1.6, 60, 140, '#c9c9c9');
+}
+buildTrack();
+const trackLength = segments.length * segmentLength;
+function findSegment(z) { return segments[Math.floor(z / segmentLength) % segments.length]; }
+function percentRemaining(z, len) { return (z % len) / len; }
+
+function project(p, cameraX, cameraY, cameraZ, camDepth, width, height, roadW) {
+    const transX = -cameraX, transY = -cameraY;
+    const transZ = (p.world.z || 0) - cameraZ;
+    const scale = camDepth / transZ;
+    p.screen.scale = scale; p.screen.z = transZ;
+    p.screen.x = Math.round((width / 2) + (scale * transX * width / 2));
+    p.screen.y = Math.round((height / 2) - (scale * transY * height / 2));
+    p.screen.w = Math.round(scale * roadW * width / 2);
+}
+
+let position = 0, playerX = 0, speed = 0, lean = 0;
+
+const carColors = ['#3d7dff', '#ffd23d', '#8f3dff', '#3dffb0', '#ff8f3d'];
+let aiCars = [];
+function buildCars(n) {
+    aiCars = [];
+    for (let i = 0; i < n; i++) {
+        aiCars.push({ z: Math.random() * trackLength, x: [-0.5, 0, 0.5][i % 3], speed: maxSpeed * (0.25 + Math.random() * 0.25), color: carColors[i % carColors.length] });
+    }
+}
+buildCars(8);
+
+const keys = {};
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+let particles = [];
+function seedParticles() {
+    particles = [];
+    const count = currentWeather === 'rainy' ? 140 : (currentWeather === 'snowy' ? 110 : 0);
+    for (let i = 0; i < count; i++) particles.push({ x: Math.random() * WIDTH, y: Math.random() * HEIGHT, s: 1 + Math.random() * 2 });
+}
+seedParticles();
+document.querySelectorAll('.wbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.wbtn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentWeather = btn.dataset.w;
+        seedParticles();
+    });
+});
+
+function update(dt) {
+    position += speed * dt;
+    if (position >= trackLength) position -= trackLength;
+    if (position < 0) position += trackLength;
+
+    const segment = findSegment(position);
+    const speedRatio = speed / maxSpeed;
+
+    // kormányzás: billentyűzet VAGY a telefon fordulás-állapota (BAL/JOBB)
+    let steer = 0;
+    if (keys['arrowleft'] || keys['a'] || motionState === 'BAL') steer -= 1;
+    if (keys['arrowright'] || keys['d'] || motionState === 'JOBB') steer += 1;
+    playerX += steer * 2.6 * dt * (0.3 + 0.7 * speedRatio);
+    playerX -= segment.curve * speedRatio * centrifugal * dt * 2.2;
+    lean += (steer - lean) * dt * 6;
+
+    // gáz/fék: billentyűzet VAGY a telefon dőlés-állapota
+    // hátradőlés (FEL) = gyorsítás, előredőlés (LE) = lassítás
+    if (keys['arrowup'] || keys['w'] || motionState === 'FEL') speed += accel * dt;
+    else if (keys['arrowdown'] || keys['s'] || motionState === 'LE') speed += braking * dt;
+    else speed += decel * dt;
+
+    if (playerX < -1.1 || playerX > 1.1) {
+        speed += offRoadDecel * dt;
+        if (speed > offRoadLimit) speed = offRoadLimit;
+    }
+    speed = Math.max(0, Math.min(maxSpeed, speed));
+    playerX = Math.max(-2.2, Math.min(2.2, playerX));
+
+    aiCars.forEach(c => { c.z += c.speed * dt; if (c.z >= trackLength) c.z -= trackLength; });
+
+    const playerSegIndex = segment.index;
+    aiCars.forEach(c => {
+        if (findSegment(c.z).index === playerSegIndex && Math.abs(c.x - playerX) < 0.5) {
+            speed *= 0.85;
+            playerX += (playerX < c.x ? -1 : 1) * 0.4;
+        }
+    });
+
+    document.getElementById('speedVal').textContent = Math.round(speedRatio * 220);
+}
+
+function drawSky() {
+    const w = WEATHER[currentWeather];
+    const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT * 0.55);
+    w.sky.forEach((c, i) => grad.addColorStop(i / (w.sky.length - 1), c));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT * 0.55);
+}
+function drawParticles() {
+    const w = WEATHER[currentWeather];
+    if (!w.particles) return;
+    if (w.particles === 'rain') {
+        ctx.strokeStyle = 'rgba(210,225,240,0.55)'; ctx.lineWidth = 1;
+        particles.forEach(p => {
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 4, p.y + 14 * p.s); ctx.stroke();
+            p.y += 9 * p.s; p.x -= 2 * p.s;
+            if (p.y > HEIGHT) { p.y = -10; p.x = Math.random() * WIDTH; }
+        });
+    } else if (w.particles === 'snow') {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        particles.forEach(p => {
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); ctx.fill();
+            p.y += 1.6 * p.s; p.x += Math.sin(p.y * 0.02) * 0.5;
+            if (p.y > HEIGHT) { p.y = -6; p.x = Math.random() * WIDTH; }
+        });
+    }
+}
+function poly(x1, y1, x2, y2, x3, y3, x4, y4, color) {
+    ctx.fillStyle = color; ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4);
+    ctx.closePath(); ctx.fill();
+}
+function drawPlayerCar() {
+    const w = 170, h = 90, y = HEIGHT - 120;
+    ctx.save();
+    ctx.translate(WIDTH / 2, y + h / 2);
+    ctx.rotate(lean * 0.12);
+    ctx.fillStyle = '#d9241c';
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.fillStyle = 'rgba(20,10,10,.55)';
+    ctx.fillRect(-w / 2 + 20, -h / 2, w - 40, h * 0.45);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-w / 2 - 8, h / 2 - 14, 18, 20);
+    ctx.fillRect(w / 2 - 10, h / 2 - 14, 18, 20);
+    ctx.restore();
+}
+
+function render() {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    drawSky();
+
+    const baseSegment = findSegment(position);
+    const basePercent = percentRemaining(position, segmentLength);
+    const camX = playerX * roadWidth;
+    let x = 0, dx = -(baseSegment.curve * basePercent);
+
+    const renderList = [];
+    for (let n = 0; n < drawDistance; n++) {
+        const segment = segments[(baseSegment.index + n) % segments.length];
+        const looped = segment.index < baseSegment.index;
+        const loopOffset = looped ? trackLength : 0;
+
+        project(segment.p1, camX - x, cameraHeight, position - loopOffset, cameraDepth, WIDTH, HEIGHT, roadWidth);
+        x += dx; dx += segment.curve;
+        project(segment.p2, camX - x, cameraHeight, position - loopOffset, cameraDepth, WIDTH, HEIGHT, roadWidth);
+
+        if (segment.p1.screen.z <= 0) continue;
+        renderList.push(segment);
+    }
+
+    for (let i = renderList.length - 1; i >= 0; i--) {
+        const seg = renderList[i];
+        const p1 = seg.p1.screen, p2 = seg.p2.screen;
+        const topY = Math.min(p1.y, p2.y), botY = Math.max(p1.y, p2.y);
+
+        ctx.fillStyle = seg.color.grass;
+        ctx.fillRect(0, topY, WIDTH, botY - topY);
+
+        const r1 = p1.w * 1.15, r2 = p2.w * 1.15;
+        poly(p1.x - r1, p1.y, p1.x + r1, p1.y, p2.x + r2, p2.y, p2.x - r2, p2.y, seg.color.rumble);
+        poly(p1.x - p1.w, p1.y, p1.x + p1.w, p1.y, p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, seg.color.road);
+
+        if (seg.color.lane) {
+            const lw1 = p1.w * 0.04, lw2 = p2.w * 0.04;
+            poly(p1.x - lw1, p1.y, p1.x + lw1, p1.y, p2.x + lw2, p2.y, p2.x - lw2, p2.y, seg.color.lane);
+        }
+
+        seg.sprites.forEach(spr => {
+            const scale = p1.scale;
+            const sx = p1.x + spr.offset * p1.w;
+            const sw = spr.w * scale, sh = spr.h * scale;
+            ctx.fillStyle = spr.color;
+            ctx.fillRect(sx - sw / 2, p1.y - sh, sw, sh);
         });
 
-        // Rövid gördülő puffer a nyers alpha/beta/accG_Z értékekhez.
-        // CÉL: se a kalibráció, se a "flipped" detektálás ne egyetlen pillanatnyi,
-        // esetlegesen zajos mintára épüljön - inkább az utolsó néhány minta
-        // MEDIÁNJÁRA/átlagára, ami kiszűri az egyszeri zajtüskéket.
-        const HISTORY_LEN = 7;
-        let historyAlpha = [];
-        let historyBeta = [];
-        let historyAccGZ = [];
-
-        function median(arr) {
-            if (arr.length === 0) return 0;
-            const sorted = [...arr].sort((a,b) => a-b);
-            return sorted[Math.floor(sorted.length/2)];
-        }
-
-        function pushHistory() {
-            if (raw.ori_alpha !== null) {
-                historyAlpha.push(raw.ori_alpha);
-                if (historyAlpha.length > HISTORY_LEN) historyAlpha.shift();
+        aiCars.forEach(c => {
+            if (findSegment(c.z).index === seg.index) {
+                const halfW = p1.w * 0.22, h = halfW * 1.3;
+                const cx = p1.x + c.x * p1.w;
+                ctx.fillStyle = c.color;
+                ctx.fillRect(cx - halfW, p1.y - h, halfW * 2, h);
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(cx - halfW * 0.6, p1.y - h, halfW * 1.2, h * 0.4);
             }
-            if (raw.ori_beta !== null) {
-                historyBeta.push(raw.ori_beta);
-                if (historyBeta.length > HISTORY_LEN) historyBeta.shift();
-            }
-            if (raw.accG_z !== null) {
-                historyAccGZ.push(raw.accG_z);
-                if (historyAccGZ.length > HISTORY_LEN) historyAccGZ.shift();
-            }
-        }
+        });
+    }
 
-        // Szűrt "vagyunk-e a flipped ágon" döntés: a legutóbbi minták MEDIÁNJÁRA
-        // épül, nem egyetlen pillanatnyi mintára - egy magányos zajtüske így nem
-        // tud téves flip-detektálást (vagy annak elmulasztását) okozni.
-        function isFlippedFiltered() {
-            return Math.abs(median(historyBeta)) > 150;
-        }
+    drawPlayerCar();
+    ctx.fillStyle = WEATHER[currentWeather].tint;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    drawParticles();
+}
 
-        function calibrate() {
-            // Szűrt kalibráció: az utolsó néhány (max HISTORY_LEN) mintából
-            // csak a NEM flipped mintákat vesszük figyelembe, és azok mediánját
-            // használjuk referenciának - nem egyetlen, esetlegesen zajos leolvasást.
-            const goodAlphas = [];
-            const goodAccGZ = [];
-            for (let i = 0; i < historyBeta.length; i++) {
-                if (Math.abs(historyBeta[i]) <= 150) {
-                    if (historyAlpha[i] !== undefined) goodAlphas.push(historyAlpha[i]);
-                    if (historyAccGZ[i] !== undefined) goodAccGZ.push(historyAccGZ[i]);
-                }
-            }
-
-            let a;
-            if (goodAlphas.length > 0) {
-                a = median(goodAlphas);
-            } else {
-                // Az összes puffer-minta flipped volt (pl. épp villódzás közepén
-                // nyomtuk meg a gombot) - normalizáljuk vissza a normál ágra.
-                a = ((raw.ori_alpha || 0) + 180) % 360;
-            }
-
-            calibAlpha = a;
-            baselineAccGZ = goodAccGZ.length > 0 ? median(goodAccGZ) : (raw.accG_z || 0);
-            yawRel = 0;
-            turnState = 'KOZEP';
-            turnCandidate = 'KOZEP';
-            tiltState = 'KOZEP';
-            settleTimer = 0;
-            isCalibrated = true;
-        }
-
-        // ============================================================
-        // SZENZOROK INDÍTÁSA
-        // ============================================================
-        async function startSensors() {
-            if (isRunning) return;
-
-            try {
-                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    const orientationPerm = await DeviceOrientationEvent.requestPermission();
-                    if (orientationPerm !== 'granted') {
-                        alert("Szenzor hozzáférés elutasítva (dőlés)!");
-                        return;
-                    }
-                }
-                if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                    const motionPerm = await DeviceMotionEvent.requestPermission();
-                    if (motionPerm !== 'granted') {
-                        alert("Szenzor hozzáférés elutasítva (gyorsulás)!");
-                        return;
-                    }
-                }
-
-                window.addEventListener('deviceorientation', handleOrientation);
-                window.addEventListener('devicemotion', handleMotion);
-
-                isRunning = true;
-                btnTR.classList.add('running');
-                btnTR.innerHTML = "G2<br><span>FUT...</span>";
-
-                recordIntervalId = setInterval(recordDataTick, 20);
-
-            } catch (err) {
-                alert("Szenzor hiba: " + err);
-            }
-        }
-
-        function handleOrientation(event) {
-            raw.ori_alpha = event.alpha;
-            raw.ori_beta = event.beta;
-            raw.ori_gamma = event.gamma;
-            pushHistory();
-        }
-
-        function wrap180(deg) {
-            let d = deg % 360;
-            if (d > 180) d -= 360;
-            if (d < -180) d += 360;
-            return d;
-        }
-
-        function handleMotion(event) {
-            if (event.acceleration) {
-                raw.acc_x = event.acceleration.x;
-                raw.acc_y = event.acceleration.y;
-                raw.acc_z = event.acceleration.z;
-            }
-            if (event.accelerationIncludingGravity) {
-                raw.accG_x = event.accelerationIncludingGravity.x;
-                raw.accG_y = event.accelerationIncludingGravity.y;
-                raw.accG_z = event.accelerationIncludingGravity.z;
-            }
-            if (event.rotationRate) {
-                raw.rot_alpha = event.rotationRate.alpha;
-                raw.rot_beta = event.rotationRate.beta;
-                raw.rot_gamma = event.rotationRate.gamma;
-            }
-            raw.motion_interval = event.interval;
-            pushHistory();
-
-            // --- Folytonos yaw: giroszkóp-integrálás ---
-            // Ez a lépés kerüli meg a kompasz gimbal-lock-os ugrásait, mert nyers
-            // szögsebességet integrálunk, nem a levezetett (és instabil) Ori_Alpha-t olvassuk.
-            const now = performance.now();
-            if (isCalibrated && lastMotionTime !== null && raw.rot_alpha !== null) {
-                let dt = (now - lastMotionTime) / 1000;
-                if (dt > 0 && dt < 0.5) {
-                    yawRel += raw.rot_alpha * dt;
-
-                    // Kompasz-korrekció: CSAK akkor bízunk az Ori_Alpha-ban, ha
-                    //  (a) nem vagyunk nagy dőlésben, ÉS
-                    //  (b) az Ori_Beta (SZŰRT, mediánból) NINCS a "flipped" ágon, ÉS
-                    //  (c) a forgás épp NYUGODT (alacsony Rot_Alpha), ÉS
-                    //  (d) a kapott elfordulás FIZIKAILAG ÉSSZERŰ (nem nagyobb, mint
-                    //      amit körözés nélkül valaha is elérhetnénk).
-                    // A (d) pont a legegyszerűbb és legerősebb védelem: nem kell
-                    // kitalálnunk, HOGY ÉS MIÉRT romlott el a kompasz - ha az eredmény
-                    // fizikailag képtelen (pl. 178 fokos "fordulat" körözés nélkül),
-                    // egyszerűen eldobjuk, és a giroszkóp viszi tovább az értéket.
-                    const isCompassFlipped = isFlippedFiltered();
-                    const isYawSettled = Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S;
-                    if (raw.accG_z !== null && raw.ori_alpha !== null && !isCompassFlipped && isYawSettled) {
-                        const deltaZ = Math.abs(median(historyAccGZ) - baselineAccGZ);
-                        if (deltaZ < CONFIG.COMPASS_SAFE_TILT) {
-                            const compassDelta = wrap180(raw.ori_alpha - calibAlpha);
-                            if (Math.abs(compassDelta) < CONFIG.PLAUSIBLE_MAX_DELTA) {
-                                yawRel = compassDelta;
-                            }
-                            // else: eldobjuk - a kompasz "hülyeséget" mondott, a giro-
-                            // integrál folytatja a maga útját tovább, korrekció nélkül.
-                        }
-                    }
-                }
-            }
-            lastMotionTime = now;
-        }
-
-        // ============================================================
-        // ÁLLAPOTGÉPEK (Schmitt-trigger + megállás-detektálás)
-        // ============================================================
-        function updateTiltState() {
-            if (!isCalibrated || historyAccGZ.length === 0) return;
-            const deltaZ = median(historyAccGZ) - baselineAccGZ;
-
-            if (tiltState === 'KOZEP') {
-                if (deltaZ > CONFIG.TILT_ENTER) tiltState = 'FEL';
-                else if (deltaZ < -CONFIG.TILT_ENTER) tiltState = 'LE';
-            } else if (tiltState === 'FEL') {
-                if (deltaZ < CONFIG.TILT_EXIT) tiltState = 'KOZEP';
-            } else if (tiltState === 'LE') {
-                if (deltaZ > -CONFIG.TILT_EXIT) tiltState = 'KOZEP';
-            }
-        }
-
-        function updateTurnState(dtMs) {
-            if (!isCalibrated || raw.rot_alpha === null) return;
-
-            // 1. Kiszámoljuk, mi lenne az állapot a jelenlegi yawRel alapján (hiszterézissel)
-            if (turnState === 'KOZEP') {
-                if (yawRel > CONFIG.TURN_ENTER) turnCandidate = 'BAL';
-                else if (yawRel < -CONFIG.TURN_ENTER) turnCandidate = 'JOBB';
-                else turnCandidate = 'KOZEP';
-            } else if (turnState === 'BAL') {
-                turnCandidate = (yawRel < CONFIG.TURN_EXIT) ? 'KOZEP' : 'BAL';
-            } else if (turnState === 'JOBB') {
-                turnCandidate = (yawRel > -CONFIG.TURN_EXIT) ? 'KOZEP' : 'JOBB';
-            }
-
-            // 2. "Megállás" detektálás: csak akkor engedjük érvényesülni a váltást,
-            // ha a forgási sebesség egy ideje alacsony (ez a "utáni megállás" feltétel).
-            if (Math.abs(raw.rot_alpha) < CONFIG.SETTLE_ROT_DEG_S) {
-                settleTimer += dtMs;
-            } else {
-                settleTimer = 0;
-            }
-
-            if (turnCandidate !== turnState && settleTimer >= CONFIG.SETTLE_MS) {
-                turnState = turnCandidate;
-            }
-        }
-
-        function combinedStateId() {
-            // 5 állapot: KOZEP + FEL/LE/BAL/JOBB. Az átlósokat kivettük - ha valamiért
-            // mindkét tengely aktív egyszerre, a fordulás (BAL/JOBB) élvez elsőbbséget.
-            if (turnState === 'BAL') return 'BAL';
-            if (turnState === 'JOBB') return 'JOBB';
-            if (tiltState === 'FEL') return 'FEL';
-            if (tiltState === 'LE') return 'LE';
-            return 'KOZEP';
-        }
-
-        function updateVisualArrows(stateId) {
-            document.querySelectorAll('.arrow').forEach(el => el.classList.remove('active'));
-            const map = {
-                'KOZEP': 'dir-c', 'FEL': 'dir-n', 'LE': 'dir-s',
-                'BAL': 'dir-w', 'JOBB': 'dir-e',
-                'FEL_BAL': 'dir-nw', 'FEL_JOBB': 'dir-ne',
-                'LE_BAL': 'dir-sw', 'LE_JOBB': 'dir-se'
-            };
-            const id = map[stateId];
-            if (id) document.getElementById(id).classList.add('active');
-        }
-
-        function fmt(v, d) {
-            if (v === null || v === undefined || isNaN(v)) return '--';
-            return v.toFixed(d === undefined ? 1 : d);
-        }
-
-        // ============================================================
-        // FŐ CIKLUS
-        // ============================================================
-        function recordDataTick() {
-            if (!isRunning) return;
-
-            const now = performance.now();
-            const dtMs = lastTickTime !== null ? (now - lastTickTime) : 20;
-            lastTickTime = now;
-
-            updateTiltState();
-            updateTurnState(dtMs);
-            const stateId = combinedStateId();
-            updateVisualArrows(stateId);
-
-            telemetryEl.innerHTML = `
-                Szenzorok: <b>FUT</b>  Rekordok: ${telemetryData.length}<br>
-                Kalibrálva: ${isCalibrated ? 'igen' : '<b>nem</b>'}<br>
-                --- nyers ---<br>
-                alpha: ${fmt(raw.ori_alpha)}&deg;  AccG_Z: ${fmt(raw.accG_z,2)}<br>
-                Rot_Alpha: ${fmt(raw.rot_alpha)}&deg;/s<br>
-                --- számolt ---<br>
-                yawRel: <b>${fmt(yawRel)}</b>&deg;<br>
-                Dőlés állapot: <b>${tiltState}</b><br>
-                Fordulás állapot: <b>${turnState}</b><br>
-                Kombinált: <b>${stateId}</b>
-            `;
-
-            telemetryData.push({
-                timestamp: Date.now(),
-                ori_alpha: raw.ori_alpha, ori_beta: raw.ori_beta, ori_gamma: raw.ori_gamma,
-                acc_x: raw.acc_x, acc_y: raw.acc_y, acc_z: raw.acc_z,
-                accG_x: raw.accG_x, accG_y: raw.accG_y, accG_z: raw.accG_z,
-                rot_alpha: raw.rot_alpha, rot_beta: raw.rot_beta, rot_gamma: raw.rot_gamma,
-                motion_interval: raw.motion_interval,
-                yaw_rel: yawRel,
-                tilt_state: tiltState,
-                turn_state: turnState,
-                combined_state: stateId,
-                btn_G1: buttonStates.G1,
-                btn_G2: buttonStates.G2,
-                btn_G3: buttonStates.G3,
-                btn_G4: buttonStates.G4
-            });
-        }
-
-        function csvVal(v) {
-            return (v === null || v === undefined) ? '' : v;
-        }
-
-        function saveCSVData() {
-            if (telemetryData.length === 0) {
-                alert("Nincs menthető adat! Indítsd el a mérést a G2 gombbal.");
-                return;
-            }
-
-            const recordCount = telemetryData.length;
-
-            let csvRows = [];
-            csvRows.push("Idobelyeg,Ori_Alpha,Ori_Beta,Ori_Gamma,Acc_X,Acc_Y,Acc_Z,AccG_X,AccG_Y,AccG_Z,Rot_Alpha,Rot_Beta,Rot_Gamma,Motion_Interval,Yaw_Rel,Tilt_State,Turn_State,Combined_State,G1_Kalib,G2_Start,G3_Save,G4_Action");
-
-            telemetryData.forEach(row => {
-                csvRows.push([
-                    row.timestamp,
-                    csvVal(row.ori_alpha), csvVal(row.ori_beta), csvVal(row.ori_gamma),
-                    csvVal(row.acc_x), csvVal(row.acc_y), csvVal(row.acc_z),
-                    csvVal(row.accG_x), csvVal(row.accG_y), csvVal(row.accG_z),
-                    csvVal(row.rot_alpha), csvVal(row.rot_beta), csvVal(row.rot_gamma),
-                    csvVal(row.motion_interval),
-                    csvVal(row.yaw_rel && row.yaw_rel.toFixed ? row.yaw_rel.toFixed(2) : row.yaw_rel),
-                    row.tilt_state, row.turn_state, row.combined_state,
-                    row.btn_G1, row.btn_G2, row.btn_G3, row.btn_G4
-                ].join(','));
-            });
-
-            const csvString = csvRows.join("\n");
-            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-
-            const link = document.createElement("a");
-            if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-                window.navigator.msSaveOrOpenBlob(blob, `allapotgep_adatok_${Date.now()}.csv`);
-                alert(`Mentve: ${recordCount} rekord.`);
-            } else {
-                const url = URL.createObjectURL(blob);
-                link.href = url;
-                link.setAttribute("download", `allapotgep_adatok_${Date.now()}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                setTimeout(() => URL.revokeObjectURL(url), 100);
-                alert(`Mentve: ${recordCount} rekord. Ha nem jelent meg letöltés, nézd meg a Letöltések mappát vagy a böngésző letöltés-sávját.`);
-            }
-        }
-
-        // ============================================================
-        // HANGOS VEZETÉS
-        // ============================================================
-        let guideResolveButton = null;
-        let guideWaitingForAny = false;
-        let guideWaitingForKey = null;
-
-        function speak(text) {
-            return new Promise((resolve) => {
-                if (!('speechSynthesis' in window)) { resolve(); return; }
-                const utter = new SpeechSynthesisUtterance(text);
-                utter.lang = 'hu-HU';
-                utter.rate = 1;
-                utter.onend = resolve;
-                utter.onerror = resolve;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(utter);
-            });
-        }
-
-        function wait(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
-        function waitForButton(key) {
-            return new Promise((resolve) => {
-                if (key === 'any') {
-                    guideWaitingForAny = true;
-                    guideWaitingForKey = null;
-                } else {
-                    guideWaitingForAny = false;
-                    guideWaitingForKey = key;
-                }
-                guideResolveButton = () => {
-                    guideWaitingForAny = false;
-                    guideWaitingForKey = null;
-                    guideResolveButton = null;
-                    resolve();
-                };
-            });
-        }
-
-        function notifyButtonPress(key) {
-            if (guideResolveButton && (guideWaitingForAny || guideWaitingForKey === key)) {
-                guideResolveButton();
-            }
-        }
-
-        async function runGuidedSequence() {
-            await speak("Állj fel, legyen körülötted legalább egy méter szabad hely. Ha készen állsz, nyomj meg bármelyik gombot.");
-            await waitForButton('any');
-
-            await speak("Tartsd a telefont egyenesen magad előtt, majd nyomd meg a kalibráló gombot.");
-            await waitForButton('G1');
-
-            await wait(500);
-            await speak("Teszt mentés.");
-            saveCSVData();
-            await wait(1000);
-
-            await speak("Dőlj hátra a telefonnal.");
-            await wait(3000);
-
-            await speak("Állj egyenesen.");
-            await wait(2000);
-
-            await speak("Dőlj előre a telefonnal.");
-            await wait(3000);
-
-            await speak("Állj egyenesen.");
-            await wait(2000);
-
-            await speak("Fordulj balra, és ott állj meg.");
-            await wait(3000);
-
-            await speak("Fordulj vissza középre.");
-            await wait(2000);
-
-            await speak("Fordulj jobbra, és ott állj meg.");
-            await wait(3000);
-
-            await speak("Fordulj vissza középre.");
-            await wait(2000);
-
-            await speak("Most fordulj balra, és közben dőlj hátra is - ez az átlós állapot tesztje.");
-            await wait(4000);
-
-            await speak("Állj vissza középre.");
-            await wait(2000);
-
-            await speak("Dőlj hátra a telefonnal.");
-            await wait(3000);
-
-            await speak("Most kezdj el körözni.");
-            await wait(6000);
-
-            await speak("Állj meg. Nyomd meg a CSV mentés gombot a napló elmentéséhez.");
-        }
-    </script>
+let lastTime = performance.now();
+function frame(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    update(dt);
+    render();
+    requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
 </body>
 </html>
