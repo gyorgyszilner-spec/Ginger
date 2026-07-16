@@ -417,17 +417,17 @@ let position = 0, playerX = laneX[1], speed = 0, score = 0, crashCount = 0, cras
 // ---- hullámokban érkező forgalom: minden hullámban 2 sáv foglalt, 1 mindig szabad ----
 const carColors = ['#3d7dff', '#ffd23d', '#8f3dff', '#3dffb0', '#ff8f3d'];
 const trafficSpeed = maxSpeed * 0.42;
-const waveSpacing = 2600;
+const startClearZone = 7000;   // ennyi ideig üres a pálya az elején, hogy be lehessen szokni
+const minCarGap = 2400;        // ezután csak 1-1 autó tűnik fel, nagy térközzel
+const maxCarGap = 4200;
 let aiCars = [];
 function buildTraffic() {
     aiCars = [];
-    const numWaves = Math.floor(trackLength / waveSpacing);
-    for (let w = 2; w < numWaves; w++) {
-        const z = w * waveSpacing;
-        const openLane = Math.floor(Math.random() * 3);
-        [0, 1, 2].filter(l => l !== openLane).forEach((lane, idx) => {
-            aiCars.push({ z, lane, color: carColors[(w + idx) % carColors.length] });
-        });
+    let z = startClearZone;
+    while (z < trackLength - 1000) {
+        const lane = Math.floor(Math.random() * 3);
+        aiCars.push({ z, lane, color: carColors[Math.floor(Math.random() * carColors.length)] });
+        z += minCarGap + Math.random() * (maxCarGap - minCarGap);
     }
 }
 buildTraffic();
@@ -484,9 +484,11 @@ function update(dt) {
     const speedRatio = speed / maxSpeed;
     playerX += (laneX[laneIndex] - playerX) * Math.min(1, dt * 8);
 
-    if (keys['arrowup'] || keys['w'] || motionState === 'FEL') speed += accel * dt;
-    else if (keys['arrowdown'] || keys['s'] || motionState === 'LE') speed += braking * dt;
-    else speed += decel * dt;
+    // a telefon-mozgás gyorsítás/lassulás iránya a korábbi teszt alapján fordítva volt,
+    // ezért itt LE = gyorsítás, FEL = fékezés (a fizikai "hátradőlés = gyorsítás" élmény változatlan)
+    if (keys['arrowup'] || keys['w'] || motionState === 'LE') speed += accel * dt;
+    else if (keys['arrowdown'] || keys['s'] || motionState === 'FEL') speed += braking * dt;
+    // sem gáz, sem fék: az autó megtartja a sebességét, nem lassul magától
     speed = Math.max(0, Math.min(maxSpeed, speed));
 
     aiCars.forEach(c => { c.z += trafficSpeed * dt; if (c.z >= trackLength) c.z -= trackLength; });
