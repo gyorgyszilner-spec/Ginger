@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v14 - LEPES-FIX</title>
+    <title>Fektetett Szenzoros Gamepad v15 - AZONNALI-LEPES</title>
     <style>
         * {
             box-sizing: border-box;
@@ -141,7 +141,7 @@
     </style>
 </head>
 <body>
-    <div id="version-badge">v14 - LEPES-FIX</div>
+    <div id="version-badge">v15 - AZONNALI-LEPES</div>
     <div id="gamepad-container">
         <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
         <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
@@ -173,7 +173,7 @@
         // A telefonon a képernyő tetején látszó jelzésből ellenőrizhető,
         // hogy a legfrissebb verzió töltődött-e be (cache-probléma esetén nem).
         // ============================================================
-        const APP_VERSION = "v14 - LEPES-FIX";
+        const APP_VERSION = "v15 - AZONNALI-LEPES";
         document.getElementById('version-badge').textContent = APP_VERSION;
         document.title = "Fektetett Szenzoros Gamepad " + APP_VERSION;
         console.log("Betöltve:", APP_VERSION);
@@ -185,14 +185,11 @@
             TILT_ENTER: 2.5,      // ide kell dőlni, hogy FEL/LE aktiválódjon
             TILT_EXIT: 1.0,       // ide kell visszatérni KÖZÉP-hez
 
-            // --- LÉPÉS-DETEKTÁLÁS (Acc_Y alapú, kétfázisú lökés-ellenlökés minta) ---
+            // --- LÉPÉS-DETEKTÁLÁS (Acc_Y alapú, AZONNALI trigger az első kilengésre) ---
             // A mért adatokból: nyugalmi Acc_Y szórás ~0.13, lépés közben a csúcsok
-            // rendszerint 1.5-nél nagyobbak (gyakran 2-4 közöttiek). A küszöböt
-            // lejjebb vettük (1.3 -> 0.9), mert egy tesztnél egy gyengébb, második
-            // lépés nem érte el az 1.3-at és emiatt kimaradt.
-            STEP_THRESHOLD: 0.9,    // ekkora kilengés indítja a lépés-jelöltet
-            STEP_WINDOW_MS: 500,     // ezen belül kell jönnie az ellenkező előjelű kilengésnek
-            STEP_REFRACTORY_MS: 400, // egy megerősített lépés után ennyi ideig nem indul új jelölt
+            // rendszerint 1.5-nél nagyobbak (gyakran 2-4 közöttiek).
+            STEP_THRESHOLD: 0.9,     // ekkora kilengés azonnal lépésnek számít
+            STEP_REFRACTORY_MS: 400, // egy lépés után ennyi ideig nem indul új (a visszalökés/lecsengés ne triggereljen újra)
             // Előjel-konvenció: melyik irányú kilengés jelenti a "balra" lépést.
             // Egy valódi teszten fordítva jött ki (az első "Lépj balra" JOBB-ként
             // regisztrálódott), ezért megfordítottuk -1 -> +1.
@@ -231,9 +228,6 @@
         // léptetik: minden lépés-esemény egy sávval arrébb tolja (BAL <-> KOZEP <-> JOBB),
         // ütközve a szélén (BAL-nál balra lépve marad BAL, JOBB-nál jobbra lépve marad JOBB).
         let lanePosition = 'KOZEP';  // 'BAL' | 'KOZEP' | 'JOBB'
-        let stepPhase = null;        // null | 'watching' - várjuk-e az ellenlökést
-        let stepPhaseSign = 0;       // az első kilengés előjele (+1 vagy -1)
-        let stepPhaseStartTime = 0;
         let stepRefractoryUntil = 0; // eddig az időpontig nem fogadunk el új lépést
         let lastStepEvent = null;    // csak megjelenítéshez / CSV-hez: 'BAL' | 'JOBB' | null
         let lastStepEventTime = 0;
@@ -305,7 +299,6 @@
             baselineAccGZ = historyAccGZ.length > 0 ? median(historyAccGZ) : (raw.accG_z || 0);
             tiltState = 'KOZEP';
             lanePosition = 'KOZEP';
-            stepPhase = null;
             stepRefractoryUntil = 0;
             lastStepEvent = null;
             isCalibrated = true;
@@ -354,33 +347,22 @@
         // nélküli) Acc_Y jelen. Ez EGYSZERI ESEMÉNY, nem folytonos állapot -
         // olyan, mint egy gombnyomás, nem mint egy megtartott irány.
         function detectStep(accY) {
+            // AZONNALI detektálás: mivel a törzsfordítást és a hajlítást kivettük,
+            // az Acc_Y-on gyakorlatilag csak a lépés ad jelentős kilengést - nem kell
+            // megvárni az ellenkező irányú visszalökést a megerősítéshez, mert nincs
+            // már más plauzibilis forrás, ami tévesen kiválthatná. Ez minimálisra
+            // csökkenti a késleltetést, ami egy ritmusjátéknál kritikus.
             if (!isCalibrated || accY === null) return;
             const now = performance.now();
 
-            if (now < stepRefractoryUntil) return; // frissen volt lépés, hűtési idő
+            if (now < stepRefractoryUntil) return; // frissen volt lépés, hűtési idő - a
+                                                     // visszalökés/lecsengés ne triggereljen újra
 
-            if (stepPhase === null) {
-                // Várjuk az első kilengést
-                if (Math.abs(accY) > CONFIG.STEP_THRESHOLD) {
-                    stepPhase = 'watching';
-                    stepPhaseSign = Math.sign(accY);
-                    stepPhaseStartTime = now;
-                }
-            } else if (stepPhase === 'watching') {
-                const elapsed = now - stepPhaseStartTime;
-                if (elapsed > CONFIG.STEP_WINDOW_MS) {
-                    // Nem jött ellenlökés időben - eldobjuk, nem volt ez lépés
-                    stepPhase = null;
-                    return;
-                }
-                // Keressük az ELLENKEZŐ előjelű kilengést
-                if (Math.sign(accY) !== stepPhaseSign && Math.abs(accY) > CONFIG.STEP_THRESHOLD) {
-                    // Megerősített lépés!
-                    const direction = (stepPhaseSign === CONFIG.STEP_SIGN_BAL) ? 'BAL' : 'JOBB';
-                    onStepDetected(direction);
-                    stepPhase = null;
-                    stepRefractoryUntil = now + CONFIG.STEP_REFRACTORY_MS;
-                }
+            if (Math.abs(accY) > CONFIG.STEP_THRESHOLD) {
+                const sign = Math.sign(accY);
+                const direction = (sign === CONFIG.STEP_SIGN_BAL) ? 'BAL' : 'JOBB';
+                onStepDetected(direction);
+                stepRefractoryUntil = now + CONFIG.STEP_REFRACTORY_MS;
             }
         }
 
