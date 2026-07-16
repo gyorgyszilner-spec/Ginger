@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v10 - LEPES-TESZT</title>
+    <title>Fektetett Szenzoros Gamepad v11 - LEPES-ESEMENY-LANE</title>
     <style>
         * {
             box-sizing: border-box;
@@ -115,6 +115,9 @@
             font-weight: bold;
             box-shadow: 0 0 12px #00e676;
         }
+        .arrow-empty {
+            background: transparent;
+        }
         #dir-c {
             background-color: rgba(255,255,255,0.02);
             font-size: 0.75rem;
@@ -141,7 +144,7 @@
     </style>
 </head>
 <body>
-    <div id="version-badge">v10 - LEPES-TESZT</div>
+    <div id="version-badge">v11 - LEPES-ESEMENY-LANE</div>
     <div id="gamepad-container">
         <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
         <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
@@ -151,15 +154,15 @@
         <div id="center-panel">
             <div id="telemetry">Szenzorok: Inaktív</div>
             <div class="compass-grid">
-                <div class="arrow" id="dir-nw">↖</div>
+                <div class="arrow-empty"></div>
                 <div class="arrow" id="dir-n">↑</div>
-                <div class="arrow" id="dir-ne">↗</div>
+                <div class="arrow-empty"></div>
                 <div class="arrow" id="dir-w">←</div>
                 <div class="arrow" id="dir-c">KÖZÉP</div>
                 <div class="arrow" id="dir-e">→</div>
-                <div class="arrow" id="dir-sw">↙</div>
+                <div class="arrow-empty"></div>
                 <div class="arrow" id="dir-s">↓</div>
-                <div class="arrow" id="dir-se">↘</div>
+                <div class="arrow-empty"></div>
             </div>
         </div>
     </div>
@@ -173,7 +176,7 @@
         // A telefonon a képernyő tetején látszó jelzésből ellenőrizhető,
         // hogy a legfrissebb verzió töltődött-e be (cache-probléma esetén nem).
         // ============================================================
-        const APP_VERSION = "v10 - LEPES-TESZT";
+        const APP_VERSION = "v11 - LEPES-ESEMENY-LANE";
         document.getElementById('version-badge').textContent = APP_VERSION;
         document.title = "Fektetett Szenzoros Gamepad " + APP_VERSION;
         console.log("Betöltve:", APP_VERSION);
@@ -205,7 +208,17 @@
             // --- Kompasz-korrekció a giroszkóp-drift ellen ---
             // A kompasz (Ori_Alpha) csak akkor megbízható, ha nem vagyunk nagy dőlésben
             // ÉS nem "flipped" (lásd Ori_Beta) ÉS a forgás épp nyugodt - lásd handleMotion.
-            COMPASS_SAFE_TILT: 2.0     // |deltaZ| ez alatt bízunk a kompaszban
+            COMPASS_SAFE_TILT: 2.0,     // |deltaZ| ez alatt bízunk a kompaszban
+
+            // --- LÉPÉS-DETEKTÁLÁS (Acc_Y alapú, kétfázisú lökés-ellenlökés minta) ---
+            // A mért adatokból: nyugalmi Acc_Y szórás ~0.13, lépés közben a csúcsok
+            // rendszerint 1.5-nél nagyobbak (gyakran 2-4 közöttiek).
+            STEP_THRESHOLD: 1.3,     // ekkora kilengés indítja a lépés-jelöltet
+            STEP_WINDOW_MS: 500,     // ezen belül kell jönnie az ellenkező előjelű kilengésnek
+            STEP_REFRACTORY_MS: 400, // egy megerősített lépés után ennyi ideig nem indul új jelölt
+            // Előjel-konvenció: melyik irányú kilengés jelenti a "balra" lépést.
+            // Ha teszteléskor fordítva működne, egyszerűen +1-re/-1-re kell váltani.
+            STEP_SIGN_BAL: -1
         };
 
         // ============================================================
@@ -238,10 +251,22 @@
 
         // Tengelyenkénti állapotgépek
         let tiltState = 'KOZEP';   // 'KOZEP' | 'FEL' | 'LE'
-        let turnState = 'KOZEP';   // 'KOZEP' | 'BAL' | 'JOBB'
+        let turnState = 'KOZEP';   // 'KOZEP' | 'BAL' | 'JOBB'  (törzsfordítás - megtartva, de a kijelzőt már nem ez vezérli)
         let turnCandidate = 'KOZEP';
         let settleTimer = 0;
         let lastTickTime = null;
+
+        // --- LÉPÉS-DETEKTÁLÁS ÉS SÁV-POZÍCIÓ ---
+        // A lanePosition NEM folytonos állapot, hanem diszkrét lépés-ESEMÉNYEK
+        // léptetik: minden lépés-esemény egy sávval arrébb tolja (BAL <-> KOZEP <-> JOBB),
+        // ütközve a szélén (BAL-nál balra lépve marad BAL, JOBB-nál jobbra lépve marad JOBB).
+        let lanePosition = 'KOZEP';  // 'BAL' | 'KOZEP' | 'JOBB'
+        let stepPhase = null;        // null | 'watching' - várjuk-e az ellenlökést
+        let stepPhaseSign = 0;       // az első kilengés előjele (+1 vagy -1)
+        let stepPhaseStartTime = 0;
+        let stepRefractoryUntil = 0; // eddig az időpontig nem fogadunk el új lépést
+        let lastStepEvent = null;    // csak megjelenítéshez / CSV-hez: 'BAL' | 'JOBB' | null
+        let lastStepEventTime = 0;
 
         const telemetryEl = document.getElementById('telemetry');
         const btnTR = document.getElementById('btn-tr');
@@ -351,6 +376,10 @@
             turnCandidate = 'KOZEP';
             tiltState = 'KOZEP';
             settleTimer = 0;
+            lanePosition = 'KOZEP';
+            stepPhase = null;
+            stepRefractoryUntil = 0;
+            lastStepEvent = null;
             isCalibrated = true;
         }
 
@@ -390,6 +419,58 @@
             }
         }
 
+        // ============================================================
+        // LÉPÉS-DETEKTÁLÁS
+        // ============================================================
+        // Kétfázisú "lökés majd ellenlökés" mintát keresünk a nyers (gravitáció
+        // nélküli) Acc_Y jelen. Ez EGYSZERI ESEMÉNY, nem folytonos állapot -
+        // olyan, mint egy gombnyomás, nem mint egy megtartott irány.
+        function detectStep(accY) {
+            if (!isCalibrated || accY === null) return;
+            const now = performance.now();
+
+            if (now < stepRefractoryUntil) return; // frissen volt lépés, hűtési idő
+
+            if (stepPhase === null) {
+                // Várjuk az első kilengést
+                if (Math.abs(accY) > CONFIG.STEP_THRESHOLD) {
+                    stepPhase = 'watching';
+                    stepPhaseSign = Math.sign(accY);
+                    stepPhaseStartTime = now;
+                }
+            } else if (stepPhase === 'watching') {
+                const elapsed = now - stepPhaseStartTime;
+                if (elapsed > CONFIG.STEP_WINDOW_MS) {
+                    // Nem jött ellenlökés időben - eldobjuk, nem volt ez lépés
+                    stepPhase = null;
+                    return;
+                }
+                // Keressük az ELLENKEZŐ előjelű kilengést
+                if (Math.sign(accY) !== stepPhaseSign && Math.abs(accY) > CONFIG.STEP_THRESHOLD) {
+                    // Megerősített lépés!
+                    const direction = (stepPhaseSign === CONFIG.STEP_SIGN_BAL) ? 'BAL' : 'JOBB';
+                    onStepDetected(direction);
+                    stepPhase = null;
+                    stepRefractoryUntil = now + CONFIG.STEP_REFRACTORY_MS;
+                }
+            }
+        }
+
+        function onStepDetected(direction) {
+            lastStepEvent = direction;
+            lastStepEventTime = performance.now();
+
+            if (direction === 'BAL') {
+                if (lanePosition === 'JOBB') lanePosition = 'KOZEP';
+                else if (lanePosition === 'KOZEP') lanePosition = 'BAL';
+                // ha mar BAL, marad BAL - nincs tovabb hova lepni
+            } else if (direction === 'JOBB') {
+                if (lanePosition === 'BAL') lanePosition = 'KOZEP';
+                else if (lanePosition === 'KOZEP') lanePosition = 'JOBB';
+                // ha mar JOBB, marad JOBB
+            }
+        }
+
         function handleOrientation(event) {
             raw.ori_alpha = event.alpha;
             raw.ori_beta = event.beta;
@@ -409,6 +490,7 @@
                 raw.acc_x = event.acceleration.x;
                 raw.acc_y = event.acceleration.y;
                 raw.acc_z = event.acceleration.z;
+                detectStep(raw.acc_y);
             }
             if (event.accelerationIncludingGravity) {
                 raw.accG_x = event.accelerationIncludingGravity.x;
@@ -504,26 +586,20 @@
             }
         }
 
-        function combinedStateId() {
-            // 5 állapot: KOZEP + FEL/LE/BAL/JOBB. Az átlósokat kivettük - ha valamiért
-            // mindkét tengely aktív egyszerre, a fordulás (BAL/JOBB) élvez elsőbbséget.
-            if (turnState === 'BAL') return 'BAL';
-            if (turnState === 'JOBB') return 'JOBB';
-            if (tiltState === 'FEL') return 'FEL';
-            if (tiltState === 'LE') return 'LE';
-            return 'KOZEP';
-        }
-
-        function updateVisualArrows(stateId) {
+        function updateVisualArrows() {
+            // A lane-pozíció (lépés-alapú BAL/KÖZÉP/JOBB) és a dőlés (FEL/LE) EGYMÁSTÓL
+            // FÜGGETLENÜL jelenik meg - nincs többé "átlós" fúziós állapot. Ha mindkettő
+            // aktív, egyszerre két cella világít (pl. bal ÉS fel egyszerre), nem egy
+            // külön "bal-fel" azonosító.
             document.querySelectorAll('.arrow').forEach(el => el.classList.remove('active'));
-            const map = {
-                'KOZEP': 'dir-c', 'FEL': 'dir-n', 'LE': 'dir-s',
-                'BAL': 'dir-w', 'JOBB': 'dir-e',
-                'FEL_BAL': 'dir-nw', 'FEL_JOBB': 'dir-ne',
-                'LE_BAL': 'dir-sw', 'LE_JOBB': 'dir-se'
-            };
-            const id = map[stateId];
-            if (id) document.getElementById(id).classList.add('active');
+
+            if (lanePosition === 'KOZEP' && tiltState === 'KOZEP') {
+                document.getElementById('dir-c').classList.add('active');
+            }
+            if (lanePosition === 'BAL') document.getElementById('dir-w').classList.add('active');
+            if (lanePosition === 'JOBB') document.getElementById('dir-e').classList.add('active');
+            if (tiltState === 'FEL') document.getElementById('dir-n').classList.add('active');
+            if (tiltState === 'LE') document.getElementById('dir-s').classList.add('active');
         }
 
         function fmt(v, d) {
@@ -542,21 +618,22 @@
             lastTickTime = now;
 
             updateTiltState();
-            updateTurnState(dtMs);
-            const stateId = combinedStateId();
-            updateVisualArrows(stateId);
+            updateTurnState(dtMs); // törzsfordítás - megtartva naplózásra, a kijelzőt már nem ez vezérli
+            updateVisualArrows();
+
+            const stepAgoMs = lastStepEvent ? (now - lastStepEventTime) : null;
 
             telemetryEl.innerHTML = `
                 Szenzorok: <b>FUT</b>  Rekordok: ${telemetryData.length}<br>
                 Kalibrálva: ${isCalibrated ? 'igen' : '<b>nem</b>'}<br>
                 --- nyers ---<br>
-                alpha: ${fmt(raw.ori_alpha)}&deg;  AccG_Z: ${fmt(raw.accG_z,2)}<br>
+                alpha: ${fmt(raw.ori_alpha)}&deg;  AccG_Z: ${fmt(raw.accG_z,2)}  Acc_Y: ${fmt(raw.acc_y,2)}<br>
                 Rot_Alpha: ${fmt(raw.rot_alpha)}&deg;/s<br>
                 --- számolt ---<br>
-                yawRel: <b>${fmt(yawRel)}</b>&deg;<br>
                 Dőlés állapot: <b>${tiltState}</b><br>
-                Fordulás állapot: <b>${turnState}</b><br>
-                Kombinált: <b>${stateId}</b>
+                Sáv-pozíció (lépésből): <b>${lanePosition}</b><br>
+                Utolsó lépés: <b>${lastStepEvent || '--'}</b> ${stepAgoMs !== null ? '(' + (stepAgoMs/1000).toFixed(1) + 's)' : ''}<br>
+                (törzsfordítás - naplózva: ${turnState}, yaw=${fmt(yawRel)}&deg;)
             `;
 
             telemetryData.push({
@@ -569,7 +646,8 @@
                 yaw_rel: yawRel,
                 tilt_state: tiltState,
                 turn_state: turnState,
-                combined_state: stateId,
+                lane_position: lanePosition,
+                step_event: (lastStepEvent && stepAgoMs !== null && stepAgoMs < 20) ? lastStepEvent : '',
                 btn_G1: buttonStates.G1,
                 btn_G2: buttonStates.G2,
                 btn_G3: buttonStates.G3,
@@ -590,7 +668,7 @@
             const recordCount = telemetryData.length;
 
             let csvRows = [];
-            csvRows.push("Idobelyeg,Ori_Alpha,Ori_Beta,Ori_Gamma,Acc_X,Acc_Y,Acc_Z,AccG_X,AccG_Y,AccG_Z,Rot_Alpha,Rot_Beta,Rot_Gamma,Motion_Interval,Yaw_Rel,Tilt_State,Turn_State,Combined_State,G1_Kalib,G2_Start,G3_Save,G4_Action");
+            csvRows.push("Idobelyeg,Ori_Alpha,Ori_Beta,Ori_Gamma,Acc_X,Acc_Y,Acc_Z,AccG_X,AccG_Y,AccG_Z,Rot_Alpha,Rot_Beta,Rot_Gamma,Motion_Interval,Yaw_Rel,Tilt_State,Turn_State,Lane_Position,Step_Event,G1_Kalib,G2_Start,G3_Save,G4_Action");
 
             telemetryData.forEach(row => {
                 csvRows.push([
@@ -601,7 +679,7 @@
                     csvVal(row.rot_alpha), csvVal(row.rot_beta), csvVal(row.rot_gamma),
                     csvVal(row.motion_interval),
                     csvVal(row.yaw_rel && row.yaw_rel.toFixed ? row.yaw_rel.toFixed(2) : row.yaw_rel),
-                    row.tilt_state, row.turn_state, row.combined_state,
+                    row.tilt_state, row.turn_state, row.lane_position, row.step_event,
                     row.btn_G1, row.btn_G2, row.btn_G3, row.btn_G4
                 ].join(','));
             });
