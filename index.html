@@ -65,7 +65,7 @@
 </style>
 </head>
 <body>
-<div id="version-badge">v22 - LEPESJAVITAS</div>
+<div id="version-badge">v23 - VISSZAALLITVA</div>
 
 <!-- ============ 1. KÉPERNYŐ: KALIBRÁCIÓ ============ -->
 <div id="screen-calib" class="screen">
@@ -107,7 +107,7 @@
 // ============================================================
 // 1) MOZGÁSÉRZÉKELŐ VEZÉRLŐ (kalibráció + fel/le/balra/jobbra állapotgép)
 // ============================================================
-const APP_VERSION = "v22 - LEPESJAVITAS";
+const APP_VERSION = "v23 - VISSZAALLITVA";
 document.getElementById('version-badge').textContent = APP_VERSION;
 document.title = "Mozgásvezérelt sávváltós sportkocsi " + APP_VERSION;
 
@@ -123,7 +123,6 @@ const CONFIG = {
     STEP_THRESHOLD: 0.9,       // ekkora kilengés azonnal lépésnek számít
     STEP_REARM_THRESHOLD: 0.3, // ez alá kell csillapodnia, mielőtt új lépés jöhet
     STEP_REARM_DWELL_MS: 100,  // ennyi ideig kell a rearm küszöb alatt maradnia (nehogy egy lecsengő lépés hamisan újra-fegyverezzen)
-    STEP_FORCE_REARM_MS: 300,  // ha gyors egymás utáni lépéseknél a jel nem csillapodik le időben, ennyi után kényszerítve újra-fegyverzünk, hogy a 2. lépés se vesszen el
     STEP_SIGN_BAL: 1           // előjel-konvenció: melyik irányú kilengés a "balra lépés" (valós teszten állítva)
 };
 
@@ -235,12 +234,6 @@ function detectStep(accY) {
         } else {
             stepRearmLowSince = null;
         }
-        // biztonsági kényszer-újrafegyverzés: ha gyors dupla lépésnél a jel nem csillapodott le
-        // időben, ne vesszen el a második lépés - egy idő után mindenképp engedjük újra
-        // biztonsági kényszer-újrafegyverzés: DE csak akkor, ha a jel már NEM a teljes lépés-küszöb
-        // fölött van - különben egy még tartó, valós telefonon gyakori lengés azonnal újra
-        // kiváltaná magát ugyanabból a mozdulatból, és ez okozta az összevissza "visszaugrálást"
-        if (!stepArmed && absY < CONFIG.STEP_THRESHOLD && (now - lastStepEventTime) > CONFIG.STEP_FORCE_REARM_MS) stepArmed = true;
     }
 }
 
