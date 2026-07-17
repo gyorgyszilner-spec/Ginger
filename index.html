@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fektetett Szenzoros Gamepad v16 - SCHMITT-LEPES</title>
+    <title>Fektetett Szenzoros Gamepad v17 - REARM-DWELL</title>
     <style>
         * {
             box-sizing: border-box;
@@ -141,7 +141,7 @@
     </style>
 </head>
 <body>
-    <div id="version-badge">v16 - SCHMITT-LEPES</div>
+    <div id="version-badge">v17 - REARM-DWELL</div>
     <div id="gamepad-container">
         <div class="action-btn" id="btn-tl">G1<br><span>KALIBRÁL</span></div>
         <div class="action-btn" id="btn-tr">G2<br><span>INDÍTÁS</span></div>
@@ -173,7 +173,7 @@
         // A telefonon a képernyő tetején látszó jelzésből ellenőrizhető,
         // hogy a legfrissebb verzió töltődött-e be (cache-probléma esetén nem).
         // ============================================================
-        const APP_VERSION = "v16 - SCHMITT-LEPES";
+        const APP_VERSION = "v17 - REARM-DWELL";
         document.getElementById('version-badge').textContent = APP_VERSION;
         document.title = "Fektetett Szenzoros Gamepad " + APP_VERSION;
         console.log("Betöltve:", APP_VERSION);
@@ -194,6 +194,11 @@
             // újra, ha a jel ténylegesen visszatért egy alacsony, nyugalmi szint alá.
             STEP_THRESHOLD: 0.9,       // ekkora kilengés azonnal lépésnek számít
             STEP_REARM_THRESHOLD: 0.3, // ez alá kell csillapodnia, mielőtt új lépés jöhet
+            // Egy valódi teszten kiderült: egy lépés többfázisú lecsengése menet közben
+            // átmenetileg 0 közelébe eshet, MIELŐTT ténylegesen befejeződne - ez hamis
+            // újra-fegyverzést okozott. Ezért nem elég egyetlen mintányira a küszöb alá
+            // esni: egy rövid ideig OTT is kell maradnia, mielőtt tényleg újra-fegyverzünk.
+            STEP_REARM_DWELL_MS: 100,  // ennyi ideig kell a rearm küszöb alatt maradnia
             // Előjel-konvenció: melyik irányú kilengés jelenti a "balra" lépést.
             // Egy valódi teszten fordítva jött ki (az első "Lépj balra" JOBB-ként
             // regisztrálódott), ezért megfordítottuk -1 -> +1.
@@ -233,6 +238,7 @@
         // ütközve a szélén (BAL-nál balra lépve marad BAL, JOBB-nál jobbra lépve marad JOBB).
         let lanePosition = 'KOZEP';  // 'BAL' | 'KOZEP' | 'JOBB'
         let stepArmed = true; // igaz, ha a jel nyugodt volt - készen áll egy új lépésre
+        let stepRearmLowSince = null; // mióta van a jel a rearm küszöb alatt (performance.now())
         let lastStepEvent = null;    // csak megjelenítéshez / CSV-hez: 'BAL' | 'JOBB' | null
         let lastStepEventTime = 0;
 
@@ -304,6 +310,7 @@
             tiltState = 'KOZEP';
             lanePosition = 'KOZEP';
             stepArmed = true;
+            stepRearmLowSince = null;
             lastStepEvent = null;
             isCalibrated = true;
         }
@@ -354,12 +361,14 @@
             // AZONNALI detektálás, DE amplitúdó-hiszterézissel védve: mivel a
             // törzsfordítást és a hajlítást kivettük, az Acc_Y-on gyakorlatilag csak
             // a lépés ad jelentős kilengést, ezért nem kell megvárni az ellenkező
-            // irányú visszalökést a megerősítéshez - viszont időzítő helyett a jel
-            // TÉNYLEGES lecsengését várjuk meg, mielőtt új lépést engedünk, mert egy
-            // rögzített idejű "hűtés" hamis eseményt okozott, ha a lecsengés tovább
-            // tartott az időzítőnél.
+            // irányú visszalökést a megerősítéshez. Az újra-fegyverzéshez viszont NEM
+            // elég egyetlen mintányira a rearm küszöb alá esni - egy rövid ideig
+            // (STEP_REARM_DWELL_MS) OTT is kell maradnia, mert egy még lecsengő,
+            // többfázisú mozdulat menet közben átmenetileg 0 közelébe eshet anélkül,
+            // hogy ténylegesen befejeződött volna.
             if (!isCalibrated || accY === null) return;
             const absY = Math.abs(accY);
+            const now = performance.now();
 
             if (stepArmed) {
                 if (absY > CONFIG.STEP_THRESHOLD) {
@@ -367,10 +376,17 @@
                     const direction = (sign === CONFIG.STEP_SIGN_BAL) ? 'BAL' : 'JOBB';
                     onStepDetected(direction);
                     stepArmed = false; // amíg vissza nem csillapodik, ne ismétlődjön
+                    stepRearmLowSince = null;
                 }
             } else {
                 if (absY < CONFIG.STEP_REARM_THRESHOLD) {
-                    stepArmed = true; // a jel ténylegesen elcsendesedett - jöhet a következő lépés
+                    if (stepRearmLowSince === null) {
+                        stepRearmLowSince = now; // most kezdett a küszöb alá esni
+                    } else if (now - stepRearmLowSince >= CONFIG.STEP_REARM_DWELL_MS) {
+                        stepArmed = true; // eleg ideig nyugodt volt - jöhet a következő lépés
+                    }
+                } else {
+                    stepRearmLowSince = null; // visszament a küszöb fölé - a mozgás még nem csengett le, nullázzuk az időzítőt
                 }
             }
         }
