@@ -65,7 +65,7 @@
 </style>
 </head>
 <body>
-<div id="version-badge">v19 - SAVJAVITAS</div>
+<div id="version-badge">v21 - UTLATHATOSAG</div>
 
 <!-- ============ 1. KÉPERNYŐ: KALIBRÁCIÓ ============ -->
 <div id="screen-calib" class="screen">
@@ -107,7 +107,7 @@
 // ============================================================
 // 1) MOZGÁSÉRZÉKELŐ VEZÉRLŐ (kalibráció + fel/le/balra/jobbra állapotgép)
 // ============================================================
-const APP_VERSION = "v19 - SAVJAVITAS";
+const APP_VERSION = "v21 - UTLATHATOSAG";
 document.getElementById('version-badge').textContent = APP_VERSION;
 document.title = "Mozgásvezérelt sávváltós sportkocsi " + APP_VERSION;
 
@@ -123,6 +123,7 @@ const CONFIG = {
     STEP_THRESHOLD: 0.9,       // ekkora kilengés azonnal lépésnek számít
     STEP_REARM_THRESHOLD: 0.3, // ez alá kell csillapodnia, mielőtt új lépés jöhet
     STEP_REARM_DWELL_MS: 100,  // ennyi ideig kell a rearm küszöb alatt maradnia (nehogy egy lecsengő lépés hamisan újra-fegyverezzen)
+    STEP_FORCE_REARM_MS: 300,  // ha gyors egymás utáni lépéseknél a jel nem csillapodik le időben, ennyi után kényszerítve újra-fegyverzünk, hogy a 2. lépés se vesszen el
     STEP_SIGN_BAL: 1           // előjel-konvenció: melyik irányú kilengés a "balra lépés" (valós teszten állítva)
 };
 
@@ -234,6 +235,9 @@ function detectStep(accY) {
         } else {
             stepRearmLowSince = null;
         }
+        // biztonsági kényszer-újrafegyverzés: ha gyors dupla lépésnél a jel nem csillapodott le
+        // időben, ne vesszen el a második lépés - egy idő után mindenképp engedjük újra
+        if (!stepArmed && (now - lastStepEventTime) > CONFIG.STEP_FORCE_REARM_MS) stepArmed = true;
     }
 }
 
@@ -401,7 +405,10 @@ const waypoints = [{ x: 0, z: 0, heading: 0 }];
 }
 const trackLength = segCurves.length * SEGMENT_LEN;
 
-function rightVec(heading) { return { x: Math.cos(heading), z: -Math.sin(heading) }; }
+// FONTOS: ennek pontosan a kamera valódi képernyő-jobb irányával kell megegyeznie, különben
+// balra lépés a képen jobbra tolja a kocsit (ez volt a hiba). A camera.lookAt által számolt
+// bázisból levezetve: screen-jobb = (-cos(heading), 0, sin(heading)).
+function rightVec(heading) { return { x: -Math.cos(heading), z: Math.sin(heading) }; }
 
 // tetszőleges (a pályán megtett) távolsághoz visszaadja a valós (x,z) pontot és irányt
 function trackAt(d) {
@@ -459,7 +466,7 @@ function buildRibbon(centerOffsetFn, halfWidthFn, color, y) {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color }));
+    return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }));
 }
 
 function buildDashedLine(centerOffset, halfWidth, color, y, dashLen, gapLen) {
@@ -485,7 +492,7 @@ function buildDashedLine(centerOffset, halfWidth, color, y, dashLen, gapLen) {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color }));
+    return new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }));
 }
 
 scene.add(buildRibbon(() => 0, () => ROAD_WIDTH / 2 + SHOULDER, 0x6b6b70, 0.0));
@@ -646,6 +653,7 @@ function resetGame() {
 }
 document.getElementById('resetBtn').addEventListener('click', () => {
     laneIndex = 1; playerLateralX = laneX[1];
+    speed = 0; // "vissza az út közepére, 0 sebességgel"
     crashFlash = 0; invulnerable = false;
     tiltState = 'KOZEP'; tiltStateSince = performance.now();
     stepArmed = true; stepRearmLowSince = null;
@@ -715,7 +723,18 @@ let lastTime = performance.now();
 function frame(now) {
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
-    if (gameActive) { update(dt); renderer.render(scene, camera); }
+    if (gameActive) {
+        try {
+            update(dt);
+            renderer.render(scene, camera);
+        } catch (err) {
+            // egy esetleges hiba SOHA ne állíthassa meg némán a teljes ciklust -
+            // e nélkül egyetlen frame-beli kivétel után a mozgás/gombok "eltűntek" volna,
+            // mert a requestAnimationFrame lánc megszakadt, miközben a billentyű-eseménykezelők
+            // továbbra is lefutottak, csak semmi sem jelenítette meg a hatásukat
+            console.error('Frame hiba (a ciklus folytatódik):', err);
+        }
+    }
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
