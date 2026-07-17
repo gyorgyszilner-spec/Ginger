@@ -65,7 +65,7 @@
 </style>
 </head>
 <body>
-<div id="version-badge">v21 - UTLATHATOSAG</div>
+<div id="version-badge">v22 - LEPESJAVITAS</div>
 
 <!-- ============ 1. KÉPERNYŐ: KALIBRÁCIÓ ============ -->
 <div id="screen-calib" class="screen">
@@ -107,7 +107,7 @@
 // ============================================================
 // 1) MOZGÁSÉRZÉKELŐ VEZÉRLŐ (kalibráció + fel/le/balra/jobbra állapotgép)
 // ============================================================
-const APP_VERSION = "v21 - UTLATHATOSAG";
+const APP_VERSION = "v22 - LEPESJAVITAS";
 document.getElementById('version-badge').textContent = APP_VERSION;
 document.title = "Mozgásvezérelt sávváltós sportkocsi " + APP_VERSION;
 
@@ -237,7 +237,10 @@ function detectStep(accY) {
         }
         // biztonsági kényszer-újrafegyverzés: ha gyors dupla lépésnél a jel nem csillapodott le
         // időben, ne vesszen el a második lépés - egy idő után mindenképp engedjük újra
-        if (!stepArmed && (now - lastStepEventTime) > CONFIG.STEP_FORCE_REARM_MS) stepArmed = true;
+        // biztonsági kényszer-újrafegyverzés: DE csak akkor, ha a jel már NEM a teljes lépés-küszöb
+        // fölött van - különben egy még tartó, valós telefonon gyakori lengés azonnal újra
+        // kiváltaná magát ugyanabból a mozdulatból, és ez okozta az összevissza "visszaugrálást"
+        if (!stepArmed && absY < CONFIG.STEP_THRESHOLD && (now - lastStepEventTime) > CONFIG.STEP_FORCE_REARM_MS) stepArmed = true;
     }
 }
 
