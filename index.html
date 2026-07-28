@@ -111,7 +111,7 @@
        szaggatott vonalként futnak lefelé (folyamatos scroll-animáció). Az autók (üldöző +
        forgalom) ELŐRE legenerált, valódi (a modellekről renderelt) 2D sprite-ok - a mi saját
        autónk NEM látszik a tükörben (ahogy egy valódi visszapillantóban se látnánk magunkat). */
-    #escapeMirror { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 30vw; height: 20vh; min-width: 210px; min-height: 110px; max-width: 380px; max-height: 190px; background: linear-gradient(to bottom, #6d7376 0%, #6d7376 42%, #54585a 42%, #54585a 100%); border: 5px solid #55595c; border-radius: 12px; display: none; z-index: 15; box-shadow: 0 6px 16px rgba(0,0,0,.55); overflow: hidden; }
+    #escapeMirror { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 30vw; height: 22vh; min-width: 190px; min-height: 70px; max-width: 340px; max-height: 25vh; background: linear-gradient(to bottom, #6d7376 0%, #6d7376 42%, #54585a 42%, #54585a 100%); border: 5px solid #55595c; border-radius: 12px; display: none; z-index: 15; box-shadow: 0 6px 16px rgba(0,0,0,.55); overflow: hidden; }
     /* az útnak is legyen perspektívája, mint a valódi pályán: lent széles, a horizont felé
        keskenyedő trapéz-forma, a sávelválasztók pedig ehhez igazodva összetartanak a horizonton */
     #mirrorRoad { position: absolute; inset: 0; background: #63686b; clip-path: polygon(8% 100%, 92% 100%, 57% 42%, 43% 42%); }
@@ -2132,7 +2132,7 @@ function densityToGlobalGap(density) {
 const INTRO_SPARSE_DENSITY = 12; // autó/sáv/km - ritkább NPC-szakasz a bevezetőhöz, hogy ne üres pályáról induljunk
 function introSparseGap() { return densityToGlobalGap(INTRO_SPARSE_DENSITY); }
 const URGENT_START_CLEARANCE = 45; // méter - eddig biztosan nincs NPC induláskor, hogy ne csússzon egybe a rendőrautóval
-const ESCAPE_DENSITY = 3.5; // autó/sáv/km - tovább ritkítva (7 -> 3,5), "alig lehet előzni" kérésre
+const ESCAPE_DENSITY = 2; // autó/sáv/km - tovább ritkítva (3,5 -> 2), mert most már az ütközés-figyelés is számít
 function nextGap(z) {
     if (gameMode === 'escape') {
         return densityToGlobalGap(ESCAPE_DENSITY);
@@ -2494,8 +2494,6 @@ const ESCAPE_INTRO_DELAY = 5;       // ennyi mp után hangzik el a bevezető rá
 const MIRROR_SLIDE_DURATION = 3;    // mp - ennyi idő alatt csúszik át az üldöző a célsávba (CSS transition)
 const MIRROR_REACTION_WINDOW = 2;   // mp - ennyi időnk van blokkolni, miután megérkezett a célsávba
 const MIRROR_LOOKAHEAD = 8 * CAR_LENGTH; // m - ennyire lát előre saját magától az üldöző, ez dönti el, próbálkozhat-e
-const ESCAPE_MIN_SPEED_KMH = 80;    // ez alá tartósan lassulva vesztünk (lásd ESCAPE_LOW_SPEED_GRACE)
-const ESCAPE_LOW_SPEED_GRACE = 1.5; // mp - ennyi ideig lehetünk 80 alatt, mielőtt ez ténylegesen vereségnek számít (ütközés utáni visszagyorsítási esély)
 const ENEMY_FOLLOW_NORMAL = 20;     // m - ennyire marad mögöttünk nyugalmi (idle) állapotban
 const ENEMY_FOLLOW_ATTEMPT = 8;     // m - ennyire zár fel, amikor épp próbálkozik (ettől "nő" a tükörben)
 const ENEMY_MODEL_KEY = 'sedan2_red'; // a kiválasztott sprite, ami az üldözőt jelképezi
@@ -2511,7 +2509,6 @@ let enemyMoveStartClock = 0;   // gameClock, amikor elindult a jelenlegi csúsz�
 let enemyArrivedClock = 0;     // gameClock, amikor megérkezett a célsávba - a reakció-ablak ebből számol
 let enemyDeadlineClock = 0;    // gameClock, ameddig be kell állnunk elé - a manőver KEZDETÉTŐL számolva (csúszás+reakció)
 let enemyAttemptTimer = 6;     // mp a következő próbálkozásig
-let escapeLowSpeedTimer = 0;   // mp - mióta megy folyamatosan 80 km/h alatt
 
 // van-e forgalmi autó a megadott sávban, az ÜLDÖZŐ saját nézőpontjából nézve előtte (8 autóhossz) -
 // ha igen, ő maga nem lát rá tisztán/nem fér oda, nem próbálkozik abban az irányban
@@ -2565,7 +2562,6 @@ function startEscapeSequence() {
     escapeRadioBusy = false;
     enemyLane = 1; enemyTargetLane = 1; enemyState = 'idle';
     enemyAttemptTimer = 6; // néhány másodperc "békeidő" induláskor, mire az első próbálkozás jön
-    escapeLowSpeedTimer = 0;
 
     const enemyEl = document.getElementById('mirrorEnemyImg');
     enemyEl.querySelector('img').src = MODEL_DATA['sprite_' + ENEMY_MODEL_KEY];
@@ -2633,23 +2629,12 @@ function updateEscapeCall(dt) {
     // találtad) - a laneBlockedByTraffic() logika viszont továbbra is a valódi aiCars adatokból
     // dolgozik, csak nincs hozzá sprite-kirajzolás
 
-    // vereség, ha TARTÓSAN túl lassan megyünk - nem azonnal, mert egy ütközés büntetése (a
-    // sebesség 25-30%-ra esik vissza pillanatnyilag) különben mindig azonnali vereséget okozna,
-    // esélyt sem hagyva a visszagyorsításra. ESCAPE_LOW_SPEED_GRACE mp-nyi folyamatos lassúság
-    // után számít csak ténylegesen "beérésnek".
-    if (speed * 3.6 < ESCAPE_MIN_SPEED_KMH) {
-        escapeLowSpeedTimer += dt;
-        if (escapeLowSpeedTimer >= ESCAPE_LOW_SPEED_GRACE) {
-            escapePhase = 'lose';
-            stopMusic();
-            document.getElementById('gameOverMsg').textContent = 'Elkaptak.';
-            document.getElementById('gameOverScreen').classList.remove('hidden');
-            gameActive = false;
-            return;
-        }
-    } else {
-        escapeLowSpeedTimer = 0;
-    }
+    // FONTOS: a korábbi "80 km/h alá tartósan lassulva vesztünk" szabályt KIVETTÜK - ebben a
+    // játékban gáz nélkül az autó megtartja a sebességét (nem gyorsul, nem is lassul magától),
+    // úgyhogy egy ütközés utáni sebesség-visszaesés (a büntetés miatt) a gyakorlatban ÖRÖKRE ott
+    // ragadt volna, amíg a játékos - aki épp a tükröt figyeli, nem a gázt - észre nem veszi és
+    // vissza nem gyorsít. Ez majdnem minden ütközés után szinte azonnali vereséget okozott. A
+    // HP-rendszer (6 ütközés) most már önmagában megfelelően kezeli az ütközések következményét.
 
     if (enemyState === 'idle') {
         enemyAttemptTimer -= dt;
