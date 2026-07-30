@@ -207,8 +207,8 @@
     <div class="menu-panel">
         <button class="menu-btn speedo-text" data-mode="urgent">Sürgős hívás</button>
         <button class="menu-btn speedo-text" data-mode="escape">Menekülés</button>
+        <button class="menu-btn speedo-text" data-mode="chase">Üldözés</button>
         <button class="menu-btn" disabled>Követés <span>(hamarosan)</span></button>
-        <button class="menu-btn" disabled>Üldözés <span>(hamarosan)</span></button>
     </div>
 </div>
 
@@ -297,7 +297,7 @@ function currentPhase() { return (typeof gameActive !== 'undefined' && gameActiv
 
 function logTelemetry(type, extra) {
     if (telemetrySaved) return; // mentés után nincs több rögzítés (a menet véget ért)
-    if (typeof gameMode !== 'undefined' && (gameMode === 'urgent' || gameMode === 'escape')) return; // Sürgős hívás / Menekülés módban nincs telemetria-rögzítés (az ütközés-szimuláció ettől függetlenül fut)
+    if (typeof gameMode !== 'undefined' && (gameMode === 'urgent' || gameMode === 'escape' || gameMode === 'chase')) return; // Sürgős hívás / Menekülés / Üldözés módban nincs telemetria-rögzítés (az ütközés-szimuláció ettől függetlenül fut)
     const row = { t_ms: Math.round(performance.now() - telemetryStartTime), phase: currentPhase(), type };
     if (extra) Object.assign(row, extra);
     telemetryLog.push(row);
@@ -1170,19 +1170,46 @@ const MODEL_REAL_LENGTHS = {
     jeep: 4.6, jeep_blue: 4.6, jeep_gray: 4.6, jeep_red: 4.6
 };
 function realLengthOf(modelKey) { return MODEL_REAL_LENGTHS[modelKey] || CAR_LENGTH; }
-let lastMainModelKey = null, lastCrossModelKey = null;
-function pickAiModelKey(lastKeyGetter, lastKeySetter) {
-    // sosem választja ugyanazt a modellt, mint a legutóbbi spawn (ugyanazon a sávon/forgalmi ágon)
-    // Menekülés módban az üldöző saját sprite-ját (ENEMY_MODEL_KEY) kihagyjuk a rendes forgalomból,
-    // hogy ne tűnhessen fel "véletlenül" egy másik, ártalmatlan autóként is
+// az AI_MODEL_KEYS "családokba" csoportosítva (ugyanaz az alap-geometria, más szín/textúra) - ez
+// kell ahhoz, hogy a forgalom-választás ne csak az EGZAKT modell-kulcs, hanem a "ugyanaz a kocsi,
+// csak más színben" ismétlődését is elkerülje
+const AI_MODEL_FAMILIES = {
+    car5: ['sedan', 'sedanGreen'],
+    car5taxi: ['taxi'],
+    car8: ['ambulance'],
+    car3: ['suv', 'suv_red', 'suv_yellow'],
+    jeep: ['jeep', 'jeep_blue', 'jeep_gray', 'jeep_red'],
+    car2: ['sedan2', 'sedan2_black', 'sedan2_red']
+};
+let mainPickState = { lastFamily: null, lastColorByFamily: {} };
+let crossPickState = { lastFamily: null, lastColorByFamily: {} };
+// state: { lastFamily, lastColorByFamily } - KÉT szinten kerüli az ismétlődést: (1) nem választja
+// ugyanazt a modell-CSALÁDOT (pl. "Jeep"), mint a legutóbbi spawn, (2) ha egy családot mégis újra
+// felhasznál, azon BELÜL más színt/változatot választ, mint amit legutóbb abból a családból rakott le
+function pickAiModelKey(state) {
+    // Menekülés módban az üldöző saját sprite-ját (ENEMY_MODEL_KEY), Üldözés módban pedig a
+    // célautó modelljét (CHASE_TARGET_MODEL_KEY) kihagyjuk a rendes forgalomból, hogy ne
+    // tűnhessen fel "véletlenül" egy másik, ártalmatlan autóként is
     let pool = AI_MODEL_KEYS;
     if (typeof gameMode !== 'undefined' && gameMode === 'escape' && typeof ENEMY_MODEL_KEY !== 'undefined') {
         pool = AI_MODEL_KEYS.filter((k) => k !== ENEMY_MODEL_KEY);
+    } else if (typeof gameMode !== 'undefined' && gameMode === 'chase' && typeof CHASE_TARGET_MODEL_KEY !== 'undefined') {
+        pool = AI_MODEL_KEYS.filter((k) => k !== CHASE_TARGET_MODEL_KEY);
     }
     if (pool.length <= 1) return pool[0];
-    let key;
-    do { key = pool[Math.floor(Math.random() * pool.length)]; } while (key === lastKeyGetter());
-    lastKeySetter(key);
+
+    const families = Object.keys(AI_MODEL_FAMILIES).filter((f) => AI_MODEL_FAMILIES[f].some((k) => pool.includes(k)));
+    let familyCandidates = families.filter((f) => f !== state.lastFamily);
+    if (familyCandidates.length === 0) familyCandidates = families; // ha csak 1 család maradt a pool-ban, nincs mit tenni
+    const family = familyCandidates[Math.floor(Math.random() * familyCandidates.length)];
+
+    const variants = AI_MODEL_FAMILIES[family].filter((k) => pool.includes(k));
+    let colorCandidates = variants.filter((k) => k !== state.lastColorByFamily[family]);
+    if (colorCandidates.length === 0) colorCandidates = variants; // ha csak 1 szín létezik ebben a családban
+    const key = colorCandidates[Math.floor(Math.random() * colorCandidates.length)];
+
+    state.lastFamily = family;
+    state.lastColorByFamily[family] = key;
     return key;
 }
 const MODEL_FORWARD_OFFSET = 0; // ha a modellek nem előre néznének menet közben, itt kell Math.PI-re vagy ±Math.PI/2-re állítani
@@ -1717,7 +1744,7 @@ function spawnCrossCar(inter, interIdx) {
         dir = Math.random() < 0.5 ? 1 : -1;
         laneOffset = dir > 0 ? -CROSS_LANE_WIDTH / 2 : CROSS_LANE_WIDTH / 2;
     }
-    const modelKey = pickAiModelKey(() => lastCrossModelKey, (k) => { lastCrossModelKey = k; });
+    const modelKey = pickAiModelKey(crossPickState);
     const fallbackColor = carColors[Math.floor(Math.random() * carColors.length)];
     const mesh = instantiateCar(modelKey, fallbackColor);
     scene.add(mesh);
@@ -1817,7 +1844,7 @@ function updateIntersections(dt) {
 let playerMesh = makeCarMesh(0xd9241c);
 scene.add(playerMesh);
 let playerModelSwapped = false;
-function playerModelKeyForMode() { return (gameMode === 'urgent' || gameMode === 'escape') ? 'police' : 'sedanSports'; }
+function playerModelKeyForMode() { return (gameMode === 'urgent' || gameMode === 'escape' || gameMode === 'chase') ? 'police' : 'sedanSports'; }
 function trySwapPlayerModel() {
     const key = playerModelKeyForMode();
     if (playerModelSwapped === key) return;
@@ -2022,14 +2049,16 @@ function updateHeartsUI() {
         if (elE) elE.classList.toggle('lost', lost);
     }
 }
-// egy ütközés HP-veszteségét intézi - csak Sürgős hívás/Menekülés módban számít, és ha elfogy
+// egy ütközés HP-veszteségét intézi - Sürgős hívás/Menekülés/Üldözés módban számít, és ha elfogy
 // a HP, azonnal vereséget okoz (ugyanazt a GAME OVER képernyőt használva, mint a többi vereség-ág)
 function registerCrashHP() {
-    if (gameMode !== 'urgent' && gameMode !== 'escape') return;
+    if (gameMode !== 'urgent' && gameMode !== 'escape' && gameMode !== 'chase') return;
     playerHP = Math.max(0, playerHP - 1);
     updateHeartsUI();
     if (playerHP <= 0) {
-        if (gameMode === 'urgent') urgentPhase = 'lose'; else escapePhase = 'lose';
+        if (gameMode === 'urgent') urgentPhase = 'lose';
+        else if (gameMode === 'escape') escapePhase = 'lose';
+        else chasePhase = 'lose';
         stopMusic();
         document.getElementById('gameOverMsg').textContent = 'Az autó összetört.';
         document.getElementById('gameOverScreen').classList.remove('hidden');
@@ -2140,6 +2169,10 @@ function nextGap(z) {
     if (gameMode === 'urgent') {
         return densityToGlobalGap(urgentDensity());
     }
+    if (gameMode === 'chase') {
+        // 20%-kal ritkább, mint a Sürgős hívás forgalma
+        return densityToGlobalGap(urgentDensity() * 0.64); // még 20%-kal ritkábban (0.8 -> 0.64)
+    }
     const learnEnd = startClearZone + learnZoneLength;
     let gap;
     if (z < learnEnd) {
@@ -2169,7 +2202,7 @@ function updateTraffic(dt) {
             nextSpawnZ += 7.0 + 1; // a leghosszabb kocsi (mentő/furgon, 7 m) hosszát figyelembe véve, nem a generikus CAR_LENGTH-öt
             continue;
         }
-        const modelKey = pickAiModelKey(() => lastMainModelKey, (k) => { lastMainModelKey = k; });
+        const modelKey = pickAiModelKey(mainPickState);
         const fallbackColor = carColors[Math.floor(Math.random() * carColors.length)];
         const mesh = instantiateCar(modelKey, fallbackColor);
         scene.add(mesh);
@@ -2201,6 +2234,7 @@ window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 let gameActive = false;
 function resetGame() {
+    camera.up.set(0, 1, 0); // a felülnézetes záróanimáció (Üldözés győzelem) átállítja ezt - itt mindig visszaáll normálra
     position = 0; distanceTraveled = 0; laneIndex = 1; playerLateralX = laneX[1]; speed = 0;
     score = 0; crashCount = 0; crashFlash = 0; invulnerable = false;
     playerHP = PLAYER_MAX_HP; updateHeartsUI();
@@ -2229,10 +2263,14 @@ function resetGame() {
     document.getElementById('radioImg').classList.remove('shown');
     stopMusic();
     escapePhase = 'idle';
+    chasePhase = 'idle';
+    if (typeof chaseTargetMesh !== 'undefined' && chaseTargetMesh) { chaseTargetMesh.visible = false; }
+    if (typeof chaseArrowSprite !== 'undefined' && chaseArrowSprite) { chaseArrowSprite.visible = false; }
+    if (typeof chaseWinPoliceMesh !== 'undefined' && chaseWinPoliceMesh) { chaseWinPoliceMesh.visible = false; }
 
-    // Sürgős hívás / Menekülés módban nincs telemetria-gyűjtés: a "Baj van" és "Megáll és ment"
-    // gomb, valamint a munkamenet-vége overlay ilyenkor nem jelenik meg
-    const isUrgent = gameMode === 'urgent' || gameMode === 'escape';
+    // Sürgős hívás / Menekülés / Üldözés módban nincs telemetria-gyűjtés: a "Baj van" és
+    // "Megáll és ment" gomb, valamint a munkamenet-vége overlay ilyenkor nem jelenik meg
+    const isUrgent = gameMode === 'urgent' || gameMode === 'escape' || gameMode === 'chase';
     document.getElementById('problemBtn').style.display = isUrgent ? 'none' : '';
     document.getElementById('saveBtn').style.display = isUrgent ? 'none' : '';
     document.getElementById('sessionEndedOverlay').style.display = 'none';
@@ -2277,9 +2315,10 @@ function launchGame() {
     document.getElementById('screen-menu').classList.add('hidden');
     document.getElementById('screen-game').classList.remove('hidden');
     resizeToViewport(); // a canvas eddig rejtett volt (0 méret) - most, hogy látszik, újra kell méretezni
-    // Sürgős hívás ÉS Menekülés módban is letisztított HUD: nincs verziószám, modell-betöltési
-    // státusz, lámpaszín-felirat, sem a pont/ütközés kijelző - helyette a nagy sebesség/idő kijelző
-    const isUrgentHud = gameMode === 'urgent' || gameMode === 'escape';
+    // Sürgős hívás, Menekülés ÉS Üldözés módban is letisztított HUD: nincs verziószám,
+    // modell-betöltési státusz, lámpaszín-felirat, sem a pont/ütközés kijelző - helyette a nagy
+    // sebesség/idő kijelző
+    const isUrgentHud = gameMode === 'urgent' || gameMode === 'escape' || gameMode === 'chase';
     document.getElementById('version-badge').style.display = isUrgentHud ? 'none' : '';
     document.getElementById('modelLoadStatus').style.display = isUrgentHud ? 'none' : '';
     document.getElementById('lightStatus').style.display = isUrgentHud ? 'none' : '';
@@ -2304,6 +2343,10 @@ function launchGame() {
         speed = trafficSpeed;
         nextSpawnZ = distanceTraveled + URGENT_START_CLEARANCE;
         startEscapeSequence();
+    } else if (gameMode === 'chase') {
+        speed = trafficSpeed;
+        nextSpawnZ = distanceTraveled + URGENT_START_CLEARANCE;
+        startChaseSequence();
     }
     gameActive = true;
     logTelemetry('phase_change', { note: 'game_start:' + gameMode });
@@ -2691,6 +2734,299 @@ function updateEscapeCall(dt) {
     }
 }
 
+// ============================================================
+// "ÜLDÖZÉS" MÓD - egy célautót kell megelőznünk. A célautó saját maga kerüli a forgalmat: előre
+// néz, ha foglalt a sávja, másikra vált (ha van szabad), különben lassít. Fölötte egy lefelé
+// mutató nyíl jelzi a helyét (depthTest:false, mindig átlátszik a forgalmon/épületeken). Ha
+// legalább egy autóhossznyival megelőzzük, egy felülnézetes "bekanyarodunk elé" animáció zárja
+// a menetet. FONTOS: a "PURSUIT_" előtagot használjuk az új konstansokhoz, mert a "CHASE_"
+// előtag már foglalt (a követő-kamera távolság-beállításaihoz, semmi köze ehhez a módhoz).
+// ============================================================
+const PURSUIT_TIME_LIMIT = 120;                  // 2 perc - ha nem előzzük meg eddig, vesztettünk
+const PURSUIT_INTRO_DELAY = 5;                    // ennyi mp után hangzik el a bevezető rádióüzenet (mint a többi módnál)
+const PURSUIT_TARGET_NOMINAL_SPEED = 150 / 3.6;   // 140 -> 150 km/h a célautó natúr sebessége
+const PURSUIT_TARGET_MIN_SPEED = 15 / 3.6;       // ennyire lassulhat le legfeljebb, ha nincs rés
+const PURSUIT_TARGET_ACCEL = 8, PURSUIT_TARGET_DECEL = 6; // m/s^2 - a célautó saját gyorsulása (4 -> 8, gyorsabban gyorsuljon)/lassulása
+const PURSUIT_LOOKAHEAD = 45;                    // m - a célautó ennyire lát előre saját magától
+const PURSUIT_LANE_CHANGE_DURATION = 0.9;        // 1.8 -> 0.9 mp - gyorsabb sávváltás, hogy ne csússzon bele a forgalomba
+const PURSUIT_START_GAP = 18 * CAR_LENGTH;       // 6 -> 12 -> 18 autóhossznyi előny a célautónak induláskor
+const CHASE_TARGET_MODEL_KEY = 'sedan';          // hozzánk hasonló modell (Car5-család), más (piros) színben
+
+let chasePhase = 'idle'; // idle | intro | active | win | lose
+let chaseRadioBusy = false;
+let chaseFlavorCloseBehindPlayed = false;  // "Előzd meg, és vágj elé!" - csak egyszer
+let chaseFlavorAlongsidePlayed = false;    // "Gyerünk, mindjárt megvan." - csak egyszer
+let chaseTargetZ = 0, chaseTargetSpeed = 0;
+let chaseTargetLane = 1, chaseTargetToLane = 1;
+let chaseTargetChanging = false;
+let chaseTargetLateralX = 0; // a TÉNYLEGES, folytonosan frissülő oldal-pozíció - ebből lehet menet
+                              // közben is simán új célra irányítani, sávugrás/villanás nélkül
+let chaseTargetMesh = null, chaseArrowSprite = null, chaseWinPoliceMesh = null;
+let chaseWinAnimActive = false, chaseWinAnimT = 0, chaseWinAnimStartLateral = 0;
+const PURSUIT_LANE_CHANGE_RATE = (2 * LANE_WIDTH) / PURSUIT_LANE_CHANGE_DURATION; // m/mp - kb. ugyanaz az ütem, mint korábban egy teljes sávváltásnál
+
+// szabad-e a megadott sáv a célautó (fromZ pozíciójából nézve) előre nézve PURSUIT_LOOKAHEAD méterig
+function pursuitLaneClearAhead(lane, fromZ) {
+    for (const c of aiCars) {
+        if (c.lane !== lane) continue;
+        const rel = c.z - fromZ;
+        if (rel > -CAR_LENGTH * 0.6 && rel < PURSUIT_LOOKAHEAD) return false;
+    }
+    return true;
+}
+
+// a játékos "foglalja-e" a megadott sávot a célautó szempontjából - ha igen (mi vagyunk ott,
+// oldalirányban közel), az ellenfél NEM válthat oda, mert az oldalirányú ütközéshez vezetne
+// ("ránk húzná az autót")
+function playerBlocksLane(lane) {
+    if (laneIndex !== lane) return false;
+    return Math.abs(distanceTraveled - chaseTargetZ) < CAR_LENGTH * 1.8;
+}
+
+// egy egyszerű, lefelé mutató nyíl-ikon 2D canvas-szal rajzolva, majd sprite-textúraként - nem
+// kell hozzá külön kép-fájl. depthTest:false, hogy MINDIG átlátsszon a forgalmon/épületeken,
+// különben sűrű forgalomban elveszne szem elől a célautó
+function makeArrowTexture() {
+    const cv = document.createElement('canvas');
+    cv.width = 64; cv.height = 64;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, 64, 64);
+    ctx.fillStyle = '#ffd23d';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(32, 58);
+    ctx.lineTo(8, 26);
+    ctx.lineTo(22, 26);
+    ctx.lineTo(22, 6);
+    ctx.lineTo(42, 6);
+    ctx.lineTo(42, 26);
+    ctx.lineTo(56, 26);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    return new THREE.CanvasTexture(cv);
+}
+
+function startChaseSequence() {
+    chasePhase = 'intro';
+    chaseRadioBusy = false;
+    trafficSuppressed = true;
+    urgentSirenEnabled = false; // csak a bevezető rádióüzenet UTÁN induljon a sziréna
+    chaseFlavorCloseBehindPlayed = false;
+    chaseFlavorAlongsidePlayed = false;
+    chaseWinAnimActive = false; chaseWinAnimT = 0;
+    chaseTargetLane = 1; chaseTargetToLane = 1;
+    chaseTargetLateralX = laneX[1];
+    chaseTargetChanging = false;
+    chaseTargetSpeed = trafficSpeed; // az intro alatt a mi sebességünkkel megy, nem a natúr 150-nel
+    chaseTargetZ = distanceTraveled + PURSUIT_START_GAP;
+
+    if (!chaseTargetMesh) {
+        chaseTargetMesh = instantiateCar(CHASE_TARGET_MODEL_KEY, 0xb23020);
+        scene.add(chaseTargetMesh);
+    }
+    chaseTargetMesh.visible = true;
+
+    if (!chaseArrowSprite) {
+        const tex = makeArrowTexture();
+        const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true });
+        chaseArrowSprite = new THREE.Sprite(mat);
+        chaseArrowSprite.scale.set(1.6, 1.6, 1.6);
+        chaseArrowSprite.renderOrder = 999;
+        scene.add(chaseArrowSprite);
+    }
+    chaseArrowSprite.visible = false; // csak a bevezető rádióüzenet UTÁN jelenik meg
+
+    document.getElementById('speedBigHUD').classList.add('shown');
+    document.getElementById('timeBigHUD').classList.add('shown');
+    document.getElementById('urgentHeartsLeft').classList.add('shown');
+    document.getElementById('urgentHeartsRight').classList.add('shown');
+    currentWeather = 'sunset'; // ugyanaz az időjárás, mint a Sürgős hívásnál
+    applyWeather();
+    playMusic(); // a Sürgős hívás zenéje (a currentMusic mód-alapú logikája ezt választja urgent/chase esetén)
+}
+
+// a célautó 3D pozícióját/AI-döntéseit frissíti minden képkockán
+function updateChaseTarget(dt, nominalSpeed) {
+    if (!chaseTargetChanging && !pursuitLaneClearAhead(chaseTargetLane, chaseTargetZ)) {
+        // foglalt a sávja - próbál másikra váltani, ha van szabad (és a játékos sincs ott)
+        const candidates = [0, 1, 2].filter((l) => l !== chaseTargetLane && pursuitLaneClearAhead(l, chaseTargetZ) && !playerBlocksLane(l));
+        if (candidates.length > 0) {
+            chaseTargetToLane = candidates[Math.floor(Math.random() * candidates.length)];
+            chaseTargetChanging = true;
+        }
+    }
+
+    // FOLYAMATOS ellenőrzés váltás KÖZBEN is: ha időközben pont a célsávba állt a játékos (nem
+    // csak a döntés pillanatában, hanem menet közben is!), azonnal átirányítunk egy másik, szabad
+    // sávra - vagy ha nincs ilyen, visszafordulunk oda, ahonnan indultunk. Mivel a chaseTargetLateralX
+    // folytonos érték (nem sáv-indexekhez kötött interpoláció), ez villanás/ugrás nélkül működik.
+    if (chaseTargetChanging && playerBlocksLane(chaseTargetToLane)) {
+        const altCandidates = [0, 1, 2].filter((l) => l !== chaseTargetToLane && pursuitLaneClearAhead(l, chaseTargetZ) && !playerBlocksLane(l));
+        if (altCandidates.length > 0) {
+            chaseTargetToLane = altCandidates[Math.floor(Math.random() * altCandidates.length)];
+        } else {
+            chaseTargetToLane = chaseTargetLane; // nincs jobb ötlet - visszafordul oda, ahonnan jött
+        }
+    }
+
+    // ha épp foglalt a sávja és nincs hova váltania, lassít; egyébként visszagyorsul a kért
+    // (fázisfüggő) célsebességre - intro alatt ez csak a forgalmi sebesség, nem a natúr 150 km/h
+    const blocked = !chaseTargetChanging && !pursuitLaneClearAhead(chaseTargetLane, chaseTargetZ);
+    const targetSpeedNow = blocked ? PURSUIT_TARGET_MIN_SPEED : nominalSpeed;
+    if (chaseTargetSpeed < targetSpeedNow) chaseTargetSpeed = Math.min(targetSpeedNow, chaseTargetSpeed + PURSUIT_TARGET_ACCEL * dt);
+    else chaseTargetSpeed = Math.max(targetSpeedNow, chaseTargetSpeed - PURSUIT_TARGET_DECEL * dt);
+    chaseTargetZ += chaseTargetSpeed * dt;
+
+    // a tényleges oldal-pozíció folyamatosan, állandó ütemben mozog a mindenkori cél felé - ha a
+    // cél menet közben megváltozik (lásd fent), ez természetesen, ugrás nélkül követi
+    const targetLaneX = chaseTargetChanging ? laneX[chaseTargetToLane] : laneX[chaseTargetLane];
+    const dx = targetLaneX - chaseTargetLateralX;
+    const maxStep = PURSUIT_LANE_CHANGE_RATE * dt;
+    if (Math.abs(dx) <= maxStep) {
+        chaseTargetLateralX = targetLaneX;
+        if (chaseTargetChanging) { chaseTargetChanging = false; chaseTargetLane = chaseTargetToLane; }
+    } else {
+        chaseTargetLateralX += Math.sign(dx) * maxStep;
+    }
+
+    const wp = worldPos(chaseTargetZ, chaseTargetLateralX);
+    const groundOff = chaseTargetMesh.userData.groundOffset || 0;
+    chaseTargetMesh.position.set(wp.x, wp.y - groundOff, wp.z);
+    chaseTargetMesh.rotation.y = wp.heading + MODEL_FORWARD_OFFSET;
+    chaseTargetMesh.rotation.x = -roadPitchAt(chaseTargetZ);
+    chaseArrowSprite.position.set(wp.x, wp.y + CAR_HEIGHT + 1.6, wp.z);
+}
+
+function updateChaseCall(dt) {
+    // FONTOS: a célautónak MÁR az intro (rádió) alatt is haladnia kell, különben a mi kocsink
+    // (ami már ekkor is 80 km/h-val megy) simán "megelőzi" az álló célautót, mire a rádió
+    // véget ér - pontosan ez okozta az azonnali, hibás győzelmet
+    if (chasePhase === 'intro' || chasePhase === 'active') {
+        // intro alatt a célautó csak a forgalmi sebességgel megy (ugyanannyival, mint mi), nem a
+        // natúr 150 km/h-val - különben már a rádió alatt messze elhúzna, mire aktívvá válunk
+        const nominal = chasePhase === 'intro' ? trafficSpeed : PURSUIT_TARGET_NOMINAL_SPEED;
+        updateChaseTarget(dt, nominal);
+    }
+
+    if (chasePhase === 'intro') {
+        document.getElementById('speedBigVal').textContent = Math.round(speed * 3.6);
+        document.getElementById('timeBigVal').textContent = PURSUIT_TIME_LIMIT;
+        if (!chaseRadioBusy && gameClock >= PURSUIT_INTRO_DELAY) {
+            chaseRadioBusy = true;
+            showRadio();
+            radioSpeak("Ginger, gyanúsított előtted, vágj elé!").then(() => {
+                hideRadio();
+                chaseRadioBusy = false;
+                chasePhase = 'active';
+                trafficSuppressed = false;
+                urgentSirenEnabled = true; // a rádióüzenet UTÁN kapcsol be a sziréna
+                chaseArrowSprite.visible = true; // a szöveg UTÁN jelenik meg csak a nyíl
+            });
+        }
+        return;
+    }
+    if (chasePhase !== 'active') return;
+
+    document.getElementById('speedBigVal').textContent = Math.round(speed * 3.6);
+    const remain = Math.max(0, PURSUIT_TIME_LIMIT - gameClock);
+    document.getElementById('timeBigVal').textContent = Math.ceil(remain);
+
+    // két, egyszeri (nem ismétlődő) rádió-flavor a menet közben - a jelenlegi relatív
+    // pozíciónktól függően, hiszterézis/ismétlés nélkül, csak amikor a helyzet ELŐSZÖR áll fenn
+    if (!chaseRadioBusy) {
+        const gapToTarget = chaseTargetZ - distanceTraveled; // pozitív = még előttünk van
+        if (!chaseFlavorCloseBehindPlayed && gapToTarget > 0 && gapToTarget <= CAR_LENGTH * 1.2) {
+            chaseFlavorCloseBehindPlayed = true;
+            chaseRadioBusy = true;
+            showRadio();
+            radioSpeak("Előzd meg, és vágj elé!").then(() => { hideRadio(); chaseRadioBusy = false; });
+        } else if (!chaseFlavorAlongsidePlayed && laneIndex !== chaseTargetLane && Math.abs(gapToTarget) < CAR_LENGTH) {
+            chaseFlavorAlongsidePlayed = true;
+            chaseRadioBusy = true;
+            showRadio();
+            radioSpeak("Gyerünk, mindjárt megvan.").then(() => { hideRadio(); chaseRadioBusy = false; });
+        }
+    }
+
+    if (distanceTraveled - chaseTargetZ >= CAR_LENGTH) {
+        chasePhase = 'win';
+        startChaseWinAnimation();
+        return;
+    }
+    if (gameClock >= PURSUIT_TIME_LIMIT) {
+        chasePhase = 'lose';
+        stopMusic();
+        document.getElementById('gameOverMsg').textContent = 'Nem sikerült megelőzni.';
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+        gameActive = false;
+    }
+}
+
+function startChaseWinAnimation() {
+    chaseWinAnimActive = true;
+    chaseWinAnimT = 0;
+    chaseWinAnimStartLateral = playerLateralX;
+    chaseArrowSprite.visible = false;
+    // egy rendőrautó érkezik hátulról, és a jelenet MÁSODIK felében keresztbe áll az üldözött
+    // autó mögött - mi már előtte vagyunk (bevágtunk), ez a hátsó "lezárás"
+    if (!chaseWinPoliceMesh) {
+        chaseWinPoliceMesh = instantiateCar('police', 0x223355);
+        scene.add(chaseWinPoliceMesh);
+    }
+    chaseWinPoliceMesh.visible = true;
+    const wp = worldPos(chaseTargetZ - 25, laneX[chaseTargetLane]);
+    const groundOff = chaseWinPoliceMesh.userData.groundOffset || 0;
+    chaseWinPoliceMesh.position.set(wp.x, wp.y - groundOff, wp.z);
+    chaseWinPoliceMesh.rotation.y = wp.heading + MODEL_FORWARD_OFFSET;
+}
+// két részes zárójelenet, felülnézetből: (1) mi szépen bekanyarodunk a célautó elé, miközben az
+// lassan megáll (elöl blokkolva), (2) egy hátulról érkező rendőrautó felzárkózik, majd keresztbe
+// fordul közvetlenül az üldözött autó mögé, "bezárva" azt hátulról is
+function updateChaseWinAnimation(dt) {
+    chaseWinAnimT += dt;
+
+    const t1 = Math.min(1, chaseWinAnimT / 2.5);
+    const smooth1 = t1 * t1 * (3 - 2 * t1);
+    const finalLateral = laneX[chaseTargetLane];
+    playerLateralX = chaseWinAnimStartLateral + (finalLateral - chaseWinAnimStartLateral) * smooth1;
+    distanceTraveled += (speed > 5 ? speed : PURSUIT_TARGET_NOMINAL_SPEED) * dt;
+
+    const p = worldPos(distanceTraveled, playerLateralX);
+    const playerGroundOff = playerMesh.userData.groundOffset || 0;
+    playerMesh.position.set(p.x, p.y - playerGroundOff, p.z);
+    playerMesh.rotation.y = p.heading + MODEL_FORWARD_OFFSET;
+
+    // a célautó lassan megáll - elöl blokkolva van (mi), nemsokára hátulról is (a rendőrautó)
+    chaseTargetSpeed = Math.max(0, chaseTargetSpeed - 8 * dt);
+    chaseTargetZ += chaseTargetSpeed * dt;
+    const wpT = worldPos(chaseTargetZ, laneX[chaseTargetLane]);
+    const targetGroundOff = chaseTargetMesh.userData.groundOffset || 0;
+    chaseTargetMesh.position.set(wpT.x, wpT.y - targetGroundOff, wpT.z);
+    chaseTargetMesh.rotation.y = wpT.heading + MODEL_FORWARD_OFFSET;
+
+    // a rendőrautó felzárkózik mögé, majd 90 fokban keresztbe fordul
+    const t2 = Math.max(0, Math.min(1, (chaseWinAnimT - 1.5) / 2.2));
+    const smooth2 = t2 * t2 * (3 - 2 * t2);
+    const behindDist = 9 - 7 * smooth2; // 9 méterről 2 méterre zár fel mögé, miközben keresztbe fordul
+    const wpP = worldPos(chaseTargetZ - behindDist, laneX[chaseTargetLane]);
+    const policeGroundOff = chaseWinPoliceMesh.userData.groundOffset || 0;
+    chaseWinPoliceMesh.position.set(wpP.x, wpP.y - policeGroundOff, wpP.z);
+    chaseWinPoliceMesh.rotation.y = wpP.heading + MODEL_FORWARD_OFFSET + smooth2 * (Math.PI / 2);
+
+    // felülnézetes (madártávlati) kamera, kicsit hátrébb húzva, hogy mindkét autó beleférjen
+    camera.up.set(0, 0, -1);
+    camera.position.set(p.x, p.y + 55, p.z - 14);
+    camera.lookAt(p.x, p.y, p.z - 10);
+
+    if (chaseWinAnimT > 4.5) {
+        document.getElementById('winMsg').textContent = 'Megelőzted!';
+        document.getElementById('winScreen').classList.remove('hidden');
+        gameActive = false;
+    }
+}
+
 function startWinAnimation() {
     urgentWinAnimActive = true;
     winAnimT = 0;
@@ -2757,6 +3093,7 @@ function updateWinAnimation(dt) {
 }
 
 function returnToMenu() {
+    camera.up.set(0, 1, 0); // biztonsági visszaállítás, ha a felülnézetes záróanimáció után térünk vissza
     document.getElementById('gameOverScreen').classList.add('hidden');
     document.getElementById('winScreen').classList.add('hidden');
     document.getElementById('screen-game').classList.add('hidden');
@@ -2765,6 +3102,11 @@ function returnToMenu() {
     document.getElementById('modelLoadStatus').style.display = 'none';
     urgentPhase = 'idle';
     escapePhase = 'idle';
+    chasePhase = 'idle';
+    chaseWinAnimActive = false;
+    if (chaseTargetMesh) chaseTargetMesh.visible = false;
+    if (chaseArrowSprite) chaseArrowSprite.visible = false;
+    if (chaseWinPoliceMesh) chaseWinPoliceMesh.visible = false;
     urgentWinAnimActive = false;
     winAnimCars.forEach(c => scene.remove(c.mesh)); winAnimCars = [];
     stopMusic();
@@ -2785,7 +3127,7 @@ const policeLightGlow = new THREE.PointLight(0xff2222, 0, 8);
 scene.add(policeLightGlow);
 let sirenPlaying = false;
 function updatePoliceLights(p) {
-    const active = (gameMode === 'urgent' || gameMode === 'escape') && urgentSirenEnabled;
+    const active = (gameMode === 'urgent' || gameMode === 'escape' || gameMode === 'chase') && urgentSirenEnabled;
     policeLightGlow.intensity = active ? 1.3 : 0;
     if (active && !sirenPlaying) { sirenPlaying = true; try { sirenAudio.currentTime = 0; sirenAudio.play().catch(() => {}); } catch (e) {} }
     if (!active && sirenPlaying) { sirenPlaying = false; try { sirenAudio.pause(); } catch (e) {} }
@@ -2813,14 +3155,21 @@ function updatePoliceLights(p) {
 
 function update(dt) {
     if (urgentWinAnimActive) { updateWinAnimation(dt); return; }
+    if (chaseWinAnimActive) { updateChaseWinAnimation(dt); return; }
     distanceTraveled += speed * dt;
     position = distanceTraveled;
 
     playerLateralX += (laneX[laneIndex] - playerLateralX) * Math.min(1, dt * 8);
 
     // kérésre megfordítva (2. kör): FEL = gyorsítás, LE = fékezés
-    if (keys['arrowup'] || keys['w'] || motionState === 'FEL') speed += accel * dt;
-    else if (keys['arrowdown'] || keys['s'] || motionState === 'LE') speed += braking * dt;
+    // Üldözés módban a bevezető rádió/sziréna beindulásáig (chasePhase 'intro') a játékos NEM
+    // gyorsíthat/fékezhet - a célautó eddig csak a forgalmi sebességgel megy, enélkül a játékos
+    // tisztességtelenül elhúzhatna mellette/előle, mielőtt a menet "hivatalosan" elindulna
+    const chaseControlsLocked = gameMode === 'chase' && chasePhase === 'intro';
+    if (!chaseControlsLocked) {
+        if (keys['arrowup'] || keys['w'] || motionState === 'FEL') speed += accel * dt;
+        else if (keys['arrowdown'] || keys['s'] || motionState === 'LE') speed += braking * dt;
+    }
     // sem gáz, sem fék: az autó megtartja a sebességét, nem lassul magától
     speed = Math.max(0, Math.min(maxSpeed, speed));
 
@@ -2836,6 +3185,15 @@ function update(dt) {
                 logTelemetry('crash', { note: 'aiCars, speedKmh=' + Math.round(speed * 3.6) });
                 break;
             }
+        }
+    }
+    // ütközés a célautóval is él (Üldözés mód) - ugyanaz a büntetés, mint a rendes forgalomnál
+    if (!invulnerable && gameMode === 'chase' && chasePhase === 'active' && chaseTargetMesh) {
+        const forwardDist = chaseTargetZ - distanceTraveled;
+        if (chaseTargetLane === laneIndex && Math.abs(forwardDist) < CAR_LENGTH + 1) {
+            speed *= 0.3; crashCount++; crashFlash = 1; invulnerable = true; registerCrashHP();
+            setTimeout(() => invulnerable = false, 900);
+            logTelemetry('crash', { note: 'chaseTarget, speedKmh=' + Math.round(speed * 3.6) });
         }
     }
     crashFlash = Math.max(0, crashFlash - dt * 1.6);
@@ -2876,6 +3234,7 @@ function update(dt) {
     updateLightning(dt, currentWeather === 'rainy');
     if (gameMode === 'urgent') updateUrgentCall();
     else if (gameMode === 'escape') updateEscapeCall(dt);
+    else if (gameMode === 'chase') updateChaseCall(dt);
 }
 
 let lastTime = performance.now();
