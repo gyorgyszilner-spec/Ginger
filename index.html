@@ -1,10 +1,11 @@
-<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090d15"><title>HEATWAVE – célzás teszt v2</title><style>
+<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090d15"><title>HEATWAVE – célzás teszt v2.2</title><style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#090d15;color:#fff;font:16px system-ui,Arial;touch-action:none}#field{position:absolute;inset:0;background:radial-gradient(ellipse at center,#172338 0%,#090d15 75%)}#border{position:absolute;inset:12px;border:2px solid #38516b;border-radius:9px;pointer-events:none}#cross{position:absolute;left:50%;top:50%;width:54px;height:54px;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 0 6px #00e9ff)}#cross:before,#cross:after{content:"";position:absolute;background:#7bf3ff}#cross:before{height:2px;width:54px;top:26px;left:0}#cross:after{width:2px;height:54px;left:26px;top:0}#cross i{position:absolute;border:2px solid #7bf3ff;width:20px;height:20px;border-radius:50%;top:17px;left:17px}#hud{position:absolute;top:20px;left:25px;color:#bbd4e4;font-size:clamp(12px,2vw,18px);pointer-events:none;text-shadow:0 1px 3px black}#actions{position:absolute;right:22px;bottom:22px;display:flex;gap:12px}button{font:600 clamp(13px,2vw,18px) system-ui;color:white;background:#24405a;border:1px solid #658ba7;border-radius:12px;padding:12px 20px;touch-action:manipulation}button:active{background:#38658b}#overlay{position:absolute;inset:0;background:#090d15ee;display:flex;align-items:center;justify-content:center;z-index:4;padding:20px}#panel{max-width:670px;text-align:center}h1{font-size:clamp(23px,4vw,38px);margin:0 0 15px}p{font-size:clamp(15px,2.5vw,21px);line-height:1.4}#start{background:#0b7288;padding:14px 34px;font-size:clamp(18px,3vw,24px)}#message{color:#ffcc88;min-height:1.6em}#settings{display:none;position:absolute;left:20px;bottom:20px;background:#142437e8;border:1px solid #48617b;padding:12px;border-radius:12px;z-index:2;font-size:14px}#settings.open{display:block}#settings label{display:block;margin:8px 0}input{width:180px;vertical-align:middle}#debug{font-variant-numeric:tabular-nums}#targets{position:absolute;inset:0;pointer-events:none}.dot{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid #637b91;transform:translate(-50%,-50%)}@media(max-height:380px){#hud{top:12px;left:16px}#actions{bottom:12px;right:14px}button{padding:8px 14px}}
-</style></head><body><div id="field"><div id="border"></div><div id="targets"></div><div id="cross"><i></i></div></div><div id="hud">Célzás · <span id="state">Indításra vár</span><div id="debug"></div></div><div id="settings"><label>Vízszintes érzékenység <input id="sx" type="range" min="0.5" max="8" step="0.25" value="7"><span id="sxv">7</span></label><label>Függőleges érzékenység <input id="sy" type="range" min="0.5" max="8" step="0.25" value="3.5"><span id="syv">3.5</span></label><label><input id="invert" type="checkbox" style="width:auto"> Függőleges irány megfordítása</label><label><input id="diag" type="checkbox" style="width:auto"> Diagnosztika</label></div><div id="actions"><button id="speed">Sebesség: 1×</button><button id="config">Beállítás</button><button id="zero">Középre állítás</button></div><div id="overlay"><div id="panel"><h1>HEATWAVE – célzásteszt</h1><p>Fogd a telefont <b>fekvő helyzetben, két kézzel</b>. A telefon elfordításával vezesd a célkeresztet a képernyő szélein és a négy sarokban is.</p><p>A teszt kizárólag a célkeresztet mozgatja. Nincs lövés vagy más játékelem.</p><button id="start">Célzás indítása</button><p id="message"></p></div></div><script>
+#versionTag{position:fixed;right:12px;top:10px;z-index:9999;background:rgba(0,0,0,.82);color:#fff;border:1px solid #7de1ff;border-radius:8px;padding:7px 12px;font:700 17px system-ui,sans-serif;pointer-events:none;letter-spacing:.4px}
+</style></head><body><div id="versionTag">HEATWAVE · v2.2</div><div id="field"><div id="border"></div><div id="targets"></div><div id="cross"><i></i></div></div><div id="hud">Célzás · <span id="state">Indításra vár</span><div id="debug"></div></div><div id="settings"><label>Vízszintes érzékenység <input id="sx" type="range" min="0.5" max="8" step="0.25" value="7"><span id="sxv">7</span></label><label>Függőleges érzékenység <input id="sy" type="range" min="0.5" max="8" step="0.25" value="3.5"><span id="syv">3.5</span></label><label><input id="invert" type="checkbox" style="width:auto"> Függőleges irány megfordítása</label><label><input id="gridOn" type="checkbox" style="width:auto"> Rácsszűrés bekapcsolása</label><label>Rácsméret <input id="gridSize" type="range" min="8" max="40" step="4" value="16"><span id="gridSizev">16</span> px</label><label>Átlépési ráhagyás <input id="gridMargin" type="range" min="0" max="12" step="1" value="5"><span id="gridMarginv">5</span> px</label><label><input id="diag" type="checkbox" style="width:auto"> Diagnosztika</label></div><div id="actions"><button id="speed">Sebesség: 1×</button><button id="config">Beállítás</button><button id="zero">Középre állítás</button></div><div id="overlay"><div id="panel"><h1>HEATWAVE – célzásteszt v2.2</h1><p>Fogd a telefont <b>fekvő helyzetben, két kézzel</b>. A telefon elfordításával vezesd a célkeresztet a képernyő szélein és a négy sarokban is.</p><p>A teszt kizárólag a célkeresztet mozgatja. Nincs lövés vagy más játékelem.</p><button id="start">Célzás indítása</button><p id="message"></p></div></div><script>
 'use strict';
 const $=id=>document.getElementById(id), cross=$('cross'),state=$('state'),dbg=$('debug');
 let speedLevel=0;const speedFactors=[1,1.5,2];
-let started=false,base=null,prev=null,filtered={x:0,y:0},lastTime=0,lastGood=null,invalid=0,seen=0,screenAngle=0;
+let gridCell={x:0,y:0};let started=false,base=null,prev=null,filtered={x:0,y:0},lastTime=0,lastGood=null,invalid=0,seen=0,screenAngle=0;
 const PI=Math.PI,rad=PI/180, clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 function mult(a,b){return {w:a.w*b.w-a.x*b.x-a.y*b.y-a.z*b.z,x:a.w*b.x+a.x*b.w+a.y*b.z-a.z*b.y,y:a.w*b.y-a.x*b.z+a.y*b.w+a.z*b.x,z:a.w*b.z+a.x*b.y-a.y*b.x+a.z*b.w};}
 function inv(a){return {w:a.w,x:-a.x,y:-a.y,z:-a.z};}
@@ -17,7 +18,7 @@ function orientation(a,b,g){const x=b*rad/2,y=a*rad/2,z=-g*rad/2;
 }
 function getAngle(){return screen.orientation&&Number.isFinite(screen.orientation.angle)?screen.orientation.angle:(typeof window.orientation==='number'?window.orientation:90);}
 function vec(q){if(q.w<0)q={w:-q.w,x:-q.x,y:-q.y,z:-q.z};const v=Math.hypot(q.x,q.y,q.z);if(v<1e-7)return {x:0,y:0,z:0};const ang=2*Math.atan2(v,q.w),f=ang/v;return {x:q.x*f,y:q.y*f,z:q.z*f};}
-function center(){if(lastGood){base=lastGood;filtered={x:0,y:0};prev=null;lastTime=0;state.textContent='Középállás rögzítve';}else state.textContent='Várakozás a szenzorra';}
+function center(){if(lastGood){base=lastGood;filtered={x:0,y:0};gridCell={x:0,y:0};prev=null;lastTime=0;state.textContent='Középállás rögzítve';}else state.textContent='Várakozás a szenzorra';}
 function update(e){if(!started||e.alpha==null||e.beta==null||e.gamma==null)return;
  const now=performance.now(),q=orientation(e.alpha,e.beta,e.gamma);lastGood=q;seen++;
  if(!base){base=q;lastTime=now;state.textContent='Mozgasd a telefont';return;}
@@ -33,7 +34,19 @@ function update(e){if(!started||e.alpha==null||e.beta==null||e.gamma==null)retur
  if(prev&&dt<0.15&&(Math.abs(targetX-prev.x)>1500*dt+65||Math.abs(targetY-prev.y)>1500*dt+65)){invalid++;return;}
  prev={x:targetX,y:targetY};
  const smooth=1-Math.exp(-dt*18);filtered.x+=(targetX-filtered.x)*smooth;filtered.y+=(targetY-filtered.y)*smooth;
- const pad=28,x=clamp(innerWidth/2+filtered.x,pad,innerWidth-pad),y=clamp(innerHeight/2+filtered.y,pad,innerHeight-pad);
+ // Hysteretic grid: cross a boundary only after passing it by a safety margin.
+ // Cells are anchored to the calibrated center; the underlying analog signal stays continuous.
+ let outX=filtered.x,outY=filtered.y;
+ if($('gridOn').checked){
+  const size=Number($('gridSize').value),margin=Number($('gridMargin').value);
+  for(const axis of ['x','y']){
+   const val=filtered[axis];
+   while(val>(gridCell[axis]+0.5)*size+margin)gridCell[axis]++;
+   while(val<(gridCell[axis]-0.5)*size-margin)gridCell[axis]--;
+  }
+  outX=gridCell.x*size;outY=gridCell.y*size;
+ }
+ const pad=28,x=clamp(innerWidth/2+outX,pad,innerWidth-pad),y=clamp(innerHeight/2+outY,pad,innerHeight-pad);
  cross.style.left=x+'px';cross.style.top=y+'px';
  if($('diag').checked)dbg.textContent=`X ${Math.round(x)} · Y ${Math.round(y)} · β ${e.beta.toFixed(1)}° · γ ${e.gamma.toFixed(1)}° · szűrt ugrások ${invalid}`;
  else dbg.textContent='';
@@ -49,9 +62,10 @@ async function start(){try{
  if(screen.orientation?.lock)screen.orientation.lock('landscape').catch(()=>{});
  setTimeout(()=>{if(!seen)state.textContent='Nincs szenzoradat – ellenőrizd az engedélyeket / HTTPS-t';},2500);
  }catch(err){$('message').textContent=err.message||String(err);}}
+$('gridOn').onchange=()=>{const size=Number($('gridSize').value);gridCell={x:Math.round(filtered.x/size),y:Math.round(filtered.y/size)};};
 $('speed').onclick=()=>{speedLevel=(speedLevel+1)%3;$('speed').textContent='Sebesség: '+['1×','1,5×','2×'][speedLevel];};
 $('start').onclick=start;$('zero').onclick=center;$('config').onclick=()=>$('settings').classList.toggle('open');
-for(const id of ['sx','sy'])$(id).oninput=()=>$(id+'v').textContent=$(id).value;
+for(const id of ['sx','sy','gridSize','gridMargin'])$(id).oninput=()=>$(id+'v').textContent=$(id).value;
 window.addEventListener('orientationchange',()=>{base=null;prev=null;lastTime=0;filtered={x:0,y:0};state.textContent='Tájolás változott – új középállás';});
 // Edge reference markers, not targets that influence the crosshair.
 for(const [x,y] of [[.04,.07],[.5,.07],[.96,.07],[.96,.5],[.96,.93],[.5,.93],[.04,.93],[.04,.5]]){const d=document.createElement('div');d.className='dot';d.style.left=(x*100)+'%';d.style.top=(y*100)+'%';$('targets').appendChild(d);}
