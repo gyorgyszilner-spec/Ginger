@@ -1,0 +1,31 @@
+{
+  "tile_size": [
+    160,
+    190
+  ],
+  "tile_types": [
+    "wall",
+    "window",
+    "door_side",
+    "lift_stop",
+    "lift_shaft",
+    "enemy_hatch",
+    "console",
+    "entrance"
+  ],
+  "door_side": {
+    "one_png": true,
+    "mirror_for_switch_right": true,
+    "state_runtime_stripe": true
+  },
+  "sprite_frame": [
+    96,
+    112
+  ],
+  "sprite_grid": [
+    6,
+    2
+  ],
+  "baseline_from_top": 104,
+  "notes": "Minden ajtó/lift/konzol teljes falelem. Szintköz 190 pixel."
+}
