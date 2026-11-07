@@ -1,1 +1,1 @@
-ORION v4.5: új jóváhagyott fekete-fehér katonagrafika, 4 fázisú járás; két szint a mobilon; fekete felső/alsó sáv, üzenetek fent; induló nagy szöveg és katonaszámok nélkül. A mozgó grafikák GIF forrásából kivágott PNG atlaszok.
+ORION v4.6: női/férfi katonák MINDEN animációja egységes, új fekete-fehér ruhában. A sisak belseje fedő, csak a figura környezete átlátszó. Lövés, találat, elesés képkockák a jóváhagyott járó figurából származnak. Mobilos kétszintes nézet megmaradt.
