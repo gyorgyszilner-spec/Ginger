@@ -1,4 +1,1 @@
-ORION v4.4
-Lepeshossz (talpkozepekbol): 32.0 vilagpixel; 4 fazis, teljes ciklus 64.0 pixel.
-Katona sprite-ok: alfa 0 vagy 255.
-KONZOL felirat eltavolitva; feltoresekor a visszaszamlalas megmaradt.
+ORION v4.5: új jóváhagyott fekete-fehér katonagrafika, 4 fázisú járás; két szint a mobilon; fekete felső/alsó sáv, üzenetek fent; induló nagy szöveg és katonaszámok nélkül. A mozgó grafikák GIF forrásából kivágott PNG atlaszok.
