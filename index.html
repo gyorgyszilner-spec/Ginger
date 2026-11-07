@@ -1,7 +1,7 @@
-<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090909"><title>ORION • Fedezőtűz v3.1</title><style>
+<!doctype html><html lang="hu"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090909"><title>ORION • Fedezőtűz v4.0</title><style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080808;color:#f3f3f3;font:15px system-ui,Arial;touch-action:none}canvas{position:absolute;inset:0;width:100%;height:100%;display:block}#hud{position:absolute;top:8px;left:12px;font:600 clamp(11px,1.55vw,17px) monospace;text-shadow:0 2px 3px #000;pointer-events:none;line-height:1.6;z-index:2}#ver{position:absolute;top:8px;right:12px;border:1px solid #aaa;background:#111c;padding:4px 9px;font:700 14px monospace;z-index:3}#buttons{position:absolute;bottom:12px;right:14px;display:flex;gap:12px;z-index:4}button{border:2px solid #eee;background:#171717e8;color:#fff;border-radius:10px;font-weight:800;font-size:clamp(14px,2.2vw,24px);padding:11px 22px;min-width:100px;touch-action:none}button:active{background:#777}#fire{background:#e5e5e5;color:#111;min-width:125px}#zero{position:absolute;bottom:13px;left:14px;z-index:4;min-width:80px;font-size:13px;padding:9px}#overlay{position:absolute;top:42px;right:12px;z-index:8;background:transparent;display:flex;align-items:flex-start;justify-content:flex-end;text-align:center;padding:0;pointer-events:none}#overlay.ending{inset:0;background:#080808ed;align-items:center;justify-content:center;padding:20px;pointer-events:auto}#panel{max-width:min(370px,45vw);max-height:75vh;overflow:auto;padding:12px 15px;background:#111e;border:1px solid #aaa;border-radius:9px;pointer-events:auto}#overlay.ending #panel{max-width:650px}h1{font-size:clamp(17px,2.3vw,27px);margin:0 0 8px;letter-spacing:.08em}p{font-size:clamp(11px,1.25vw,14px);line-height:1.5}#msg{color:#ddd;min-height:1.4em}#start{background:#e7e7e7;color:#111}#notice{position:absolute;left:50%;top:14%;transform:translateX(-50%);font:800 clamp(17px,3vw,32px) monospace;text-shadow:0 3px 5px #000;pointer-events:none;z-index:3;text-align:center}#cross{position:absolute;width:42px;height:42px;transform:translate(-50%,-50%);pointer-events:none;z-index:3;filter:drop-shadow(0 1px 2px #000)}#cross:before,#cross:after{content:"";position:absolute;background:#fff}#cross:before{width:42px;height:2px;top:20px}#cross:after{height:42px;width:2px;left:20px}#cross i{position:absolute;left:12px;top:12px;width:18px;height:18px;border:2px solid #fff;border-radius:50%}#impact{position:absolute;width:14px;height:14px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);display:none;z-index:5;pointer-events:none}#hint{position:absolute;left:50%;bottom:15px;transform:translateX(-50%);font:12px monospace;color:#bbb;pointer-events:none;z-index:2;white-space:nowrap}@media(max-height:400px){button{padding:7px 15px}#zero{padding:6px}#buttons{bottom:7px}}
 #soundbar{position:absolute;right:14px;top:43px;z-index:6;display:flex;gap:5px;align-items:flex-start}#soundbar button{min-width:0;font-size:12px;padding:5px 9px;border-width:1px;border-radius:6px}#soundPanel{position:absolute;right:0;top:35px;background:#151515ed;border:1px solid #999;padding:12px;border-radius:8px;width:190px}#soundPanel[hidden]{display:none}#soundPanel label{display:block;font:12px monospace;margin:5px 0}#soundPanel input{display:block;width:100%;accent-color:#ddd;touch-action:auto}
-</style></head><body><canvas id="scene"></canvas><div id="cross"><i></i></div><div id="impact"></div><div id="hud"><div id="status">SZAKASZ 01 · FEDŐTŰZ</div><div id="team"></div><div id="score"></div></div><div id="ver">ORION v3.3 · AUDIO</div><div id="notice"></div><div id="soundbar"><button id="soundToggle" title="Hang ki/be">🔊 HANG</button><button id="soundSettings" title="Hangerő">⚙</button><div id="soundPanel" hidden><label>Zene <input id="musicVol" type="range" min="0" max="100" value="55"></label><label>Effektek <input id="sfxVol" type="range" min="0" max="100" value="75"></label><label>Beszéd <input id="voiceVol" type="range" min="0" max="100" value="100"></label></div></div><div id="buttons"><button id="speed">SEB. 2×</button><button id="zoom">ZOOM 1×</button><button id="fire">TŰZ</button></div><button id="zero">KÖZÉP</button><div id="hint">TELEFON MOZGATÁSA: CÉLZÁS ÉS KAMERAGÖRGETÉS · TŰZ / ZOOM / SEBESSÉG</div><div id="overlay"><div id="panel"><h1>ORION · FEDEZŐTŰZ</h1><p>1966-os fekete-fehér sci-fi mesterlövész-próba.<br>Három katonád egy nagy, négyemeletes bázison hajt végre oda-vissza küldetést, majd lifttel visszatér a földszintre és a bejáraton távozik. Védd őket a robotpókoktól és gyíklényektől! A katonák maguk is lőnek, de megsérülhetnek. A lőszer korlátlan. <b>Baráti tűz aktív.</b></p><p>Találd el a lények <b>világos magját / fejét</b> az azonnali kiiktatáshoz. Lődd a kapcsolókat az ajtók nyitásához vagy zárásához, és használd a robbanó hordókat – de vigyázz a sajátjaidra! Minden ajtó kapcsolója csak az egyik oldalon található. A katonák csak a saját oldalukon lévő kapcsolót tudják használni. A csapat a liftnél bevárja az utolsó élőt. A zsákutcában lévő konzolt a katonák 30 másodperc alatt törik fel, miközben fedezned kell őket. Néhány ajtót kizárólag te nyithatsz lövéssel. A lények az ajtókból jönnek; a gyíklény képes ajtót nyitni, a pók nem. A ZOOM gomb a célkereszt körüli kerek céltávcsőben 1× / 1,2× / 1,5× nagyítást vált. A SEB. gomb állítja a célzás érzékenységét. A telefon elforgatásával célzol; a képernyő szélén tartott célkereszt folyamatosan görgeti a pályát. A KÖZÉP gomb a kamerát is visszaállítja.</p><button id="start">KÜLDETÉS INDÍTÁSA</button><p id="msg"></p></div></div><script>
+</style></head><body><canvas id="scene"></canvas><div id="cross"><i></i></div><div id="impact"></div><div id="hud"><div id="status">SZAKASZ 01 · FEDŐTŰZ</div><div id="team"></div><div id="score"></div></div><div id="ver">ORION v4.4 · KATONÁK ÉS ROBBANÁS</div><div id="notice"></div><div id="soundbar"><button id="soundToggle" title="Hang ki/be">🔊 HANG</button><button id="soundSettings" title="Hangerő">⚙</button><div id="soundPanel" hidden><label>Zene <input id="musicVol" type="range" min="0" max="100" value="55"></label><label>Effektek <input id="sfxVol" type="range" min="0" max="100" value="75"></label><label>Beszéd <input id="voiceVol" type="range" min="0" max="100" value="100"></label></div></div><div id="buttons"><button id="speed">SEB. 2×</button><button id="zoom">ZOOM 1×</button><button id="fire">TŰZ</button></div><button id="zero">KÖZÉP</button><div id="hint">TELEFON MOZGATÁSA: CÉLZÁS ÉS KAMERAGÖRGETÉS · TŰZ / ZOOM / SEBESSÉG</div><div id="overlay"><div id="panel"><h1>ORION · FEDEZŐTŰZ</h1><p>1966-os fekete-fehér sci-fi mesterlövész-próba.<br>Három katonád egy nagy, négyemeletes bázison hajt végre oda-vissza küldetést, majd lifttel visszatér a földszintre és a bejáraton távozik. Védd őket a robotpókoktól és gyíklényektől! A katonák maguk is lőnek, de megsérülhetnek. A lőszer korlátlan. <b>Baráti tűz aktív.</b></p><p>Találd el a lények <b>világos magját / fejét</b> az azonnali kiiktatáshoz. Lődd a kapcsolókat az ajtók nyitásához vagy zárásához, és használd a robbanó hordókat – de vigyázz a sajátjaidra! Minden ajtó kapcsolója csak az egyik oldalon található. A katonák csak a saját oldalukon lévő kapcsolót tudják használni. A csapat a liftnél bevárja az utolsó élőt. A zsákutcában lévő konzolt a katonák 30 másodperc alatt törik fel, miközben fedezned kell őket. Néhány ajtót kizárólag te nyithatsz lövéssel. A lények az ajtókból jönnek; a gyíklény képes ajtót nyitni, a pók nem. A ZOOM gomb a célkereszt körüli kerek céltávcsőben 1× / 1,2× / 1,5× nagyítást vált. A SEB. gomb állítja a célzás érzékenységét. A telefon elforgatásával célzol; a képernyő szélén tartott célkereszt folyamatosan görgeti a pályát. A KÖZÉP gomb a kamerát is visszaállítja.</p><button id="start">KÜLDETÉS INDÍTÁSA</button><p id="msg"></p></div></div><script>
 'use strict';
 const $=id=>document.getElementById(id),canvas=$('scene'),ctx=canvas.getContext('2d');
 
@@ -26,26 +26,29 @@ const route=[{level:0,x:2870},{level:2,x:2870,lift:1},{level:2,x:470},{level:1,x
 const elevators=[{x:470,stops:[0,1,2,3]},{x:2870,stops:[0,2,3]}];
 function liftStops(lift,level){return lift.stops.includes(level);}
 function switchSide(d){return d.switchSide;}
-function resize(){vw=innerWidth;vh=innerHeight;dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);scale=Math.min(vw/W,vh/H);}addEventListener('resize',resize);resize();
+function resize(){vw=innerWidth;vh=innerHeight;dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);scale=Math.max(vw/W,vh/(3*190));}addEventListener('resize',resize);resize();
 function tell(s,t=1.2){$('notice').textContent=s;noticeUntil=performance.now()+t*1000;}
 function floorY(n){return FLOORS[n];}
-function init(){routeIndex=0;formationLeaderId=0;formationCooldown=0;holdTime=0;liftTimer=0;liftTravel=false;routeNotice=false;camX=0;camY=180;manualCamX=0;manualCamY=0;elapsed=shots=hits=frags=friendHits=spawnCount=0;spawnAt=1.4;zoom=1;lastFire=0;active=true;finished=false;effects=[];
- soldiers=[0,1,2].map(i=>({x:170-i*53,level:0,hp:100,alive:true,cd:rnd(.2,.8),rank:i,dir:1,anim:0,state:'walk',id:i}));
+// A kapcsolók és az ütközés pontosan a kirajzolt falcellákhoz igazodnak.
+function tileCenter(x){return 50+80+Math.round((x-50-80)/160)*160;}
+function doorSwitchPoint(d){return {x:d.x+(d.switchSide<0?-32:32),y:floorY(d.level)-87};}
+function init(){routeIndex=0;formationLeaderId=0;formationCooldown=0;holdTime=0;liftTimer=0;liftTravel=false;routeNotice=false;camX=0;camY=0;manualCamX=0;manualCamY=0;elapsed=shots=hits=frags=friendHits=spawnCount=0;spawnAt=1.4;zoom=1;lastFire=0;active=true;finished=false;effects=[];
+ soldiers=[0,1,2].map(i=>({x:170-i*53,level:0,hp:100,alive:true,cd:rnd(.2,.8),rank:i,dir:1,anim:0,state:'walk',id:i,walkDistance:0,shotTime:0,hitTime:0,deathTime:0,deathStarted:false}));
  // switchSide: -1 = bal oldal, +1 = jobb oldal. MINDEN ajtón pontosan egy kapcsoló.
  doors=[{x:880,level:0,open:false,switchSide:-1},{x:1970,level:0,open:false,switchSide:1},
  {x:900,level:2,open:false,switchSide:-1},{x:2000,level:2,open:false,switchSide:1},
  {x:1010,level:1,open:false,switchSide:-1},{x:1840,level:1,open:false,switchSide:1},
  {x:2450,level:1,open:false,switchSide:-1},{x:1200,level:3,open:false,switchSide:1},
- {x:2330,level:3,open:false,switchSide:-1}].map((d,i)=>({...d,id:i,auto:0,pending:false,holdProgress:0}));
+ {x:2330,level:3,open:false,switchSide:-1}].map((d,i)=>({...d,x:tileCenter(d.x),id:i,auto:0,pending:false,holdProgress:0}));
  portals=[{x:680,level:0},{x:1460,level:0},{x:2540,level:0},{x:660,level:1},{x:1570,level:1},{x:760,level:2},{x:1670,level:2},{x:2590,level:2},{x:950,level:3},{x:2150,level:3}].map((p,i)=>({...p,id:i,flash:0}));
  barrels=[{x:1170,level:0},{x:1600,level:0},{x:1740,level:0},{x:2400,level:0},{x:1250,level:1},{x:1360,level:1},{x:2240,level:1},{x:2320,level:1},{x:1100,level:2},{x:1820,level:2},{x:1890,level:2},{x:2530,level:2},{x:1540,level:3},{x:2600,level:3}].map((b,i)=>({...b,id:i,alive:true}));
- $('zoom').textContent='ZOOM 1×';$('speed').textContent='SEB. '+aimSpeed+'×';tell('KÜLDETÉS: BEHATOLÁS',2);}
+ camY=Math.max(0,floorY(0)-vh/scale+5);$('zoom').textContent='ZOOM 1×';$('speed').textContent='SEB. '+aimSpeed+'×';tell('KÜLDETÉS: BEHATOLÁS',2);}
 function finish(win){active=false;finished=true;sound.music.pause();$('overlay').classList.add('ending');$('overlay').style.display='flex';$('panel').innerHTML=`<h1>${win?'KÜLDETÉS TELJESÍTVE':'KÜLDETÉS SIKERTELEN'}</h1><p>Életben maradt katonák: ${soldiers.filter(s=>s.alive).length}/3<br>Kiiktatott lények: ${frags}<br>Találatok: ${hits}/${shots}<br>Baráti találatok: ${friendHits}<br>Eltelt idő: ${Math.round(elapsed)} s</p><button id="restart">ÚJRAPRÓBÁLOM</button>`;$('restart').onclick=()=>{soundStart();init();$('overlay').classList.remove('ending');$('overlay').style.display='none';};}
 function living(){return soldiers.filter(s=>s.alive);}
-function killEnemy(e){if(e.alive&&e.hp<=0){e.alive=false;frags++;}}
+function killEnemy(e){if(e.alive&&e.hp<=0){e.alive=false;e.deathTime=0;frags++;}}
 function toggleDoor(d,who){if(d.holdDoor&&who!=='team')return;d.open=!d.open;sfx('door',100);d.auto=0;d.pending=false;effects.push({x:d.x,y:floorY(d.level)-60,t:0,r:16,small:true});if(who==='player')tell(d.open?'AJTÓ NYITVA':'AJTÓ ZÁRVA',.7);}
-function spawn(){const pool=portals.filter(p=>!doors.some(d=>d.holdDoor&&d.level===p.level&&Math.abs(d.x-p.x)<160)&&!enemies.some(e=>e.alive&&e.level===p.level&&Math.abs(e.x-p.x)<75));if(!pool.length)return;const p=pool[Math.floor(Math.random()*pool.length)],type=Math.random()<.60?'spider':'lizard';enemies.push({x:p.x,level:p.level,type,hp:type==='spider'?45:85,alive:true,cd:rnd(.5,1.7),emerging:.75,anim:0,dir:1,liftTimer:0,liftTo:-1,liftX:0,doorTimer:0});p.flash=.8;spawnCount++;}
-function explosion(x,y,r=185){sfx('explosion',100);effects.push({x,y,t:0,r,boom:true});for(const e of enemies)if(e.alive&&Math.hypot(e.x-x,floorY(e.level)-30-y)<r){e.hp-=Math.round(160*(1-Math.hypot(e.x-x,floorY(e.level)-30-y)/r)+35);killEnemy(e);}for(const s of soldiers)if(s.alive&&Math.hypot(s.x-x,floorY(s.level)-40-y)<r){s.hp-=Math.round(120*(1-Math.hypot(s.x-x,floorY(s.level)-40-y)/r)+15);if(s.hp<=0)s.alive=false;}for(const b of barrels)if(b.alive&&Math.hypot(b.x-x,floorY(b.level)-24-y)<r*.83){b.alive=false;effects.push({x:b.x,y:floorY(b.level)-24,t:-.13,r:175,chain:true});}tell('ROBBANÁS!',.6);}
+function spawn(){const pool=portals.filter(p=>!doors.some(d=>d.holdDoor&&d.level===p.level&&Math.abs(d.x-p.x)<160)&&!enemies.some(e=>e.alive&&e.level===p.level&&Math.abs(e.x-p.x)<75));if(!pool.length)return;const p=pool[Math.floor(Math.random()*pool.length)],type=Math.random()<.60?'spider':'lizard';enemies.push({x:p.x,level:p.level,type,hp:type==='spider'?45:85,alive:true,cd:rnd(.5,1.7),emerging:.75,anim:0,dir:1,walkDistance:0,shotTime:0,hitTime:0,deathTime:0,liftTimer:0,liftTo:-1,liftX:0,doorTimer:0});p.flash=.8;spawnCount++;}
+function explosion(x,y,r=185){sfx('explosion',100);effects.push({x,y,t:0,r,boom:true});for(const e of enemies)if(e.alive&&Math.hypot(e.x-x,floorY(e.level)-30-y)<r){e.hp-=Math.round(160*(1-Math.hypot(e.x-x,floorY(e.level)-30-y)/r)+35);killEnemy(e);}for(const s of soldiers)if(s.alive&&Math.hypot(s.x-x,floorY(s.level)-40-y)<r){s.hp-=Math.round(120*(1-Math.hypot(s.x-x,floorY(s.level)-40-y)/r)+15);if(s.hp<=0){s.alive=false;s.deathTime=0;s.deathStarted=true;}else s.hitTime=.26;}for(const b of barrels)if(b.alive&&Math.hypot(b.x-x,floorY(b.level)-24-y)<r*.83){b.alive=false;effects.push({x:b.x,y:floorY(b.level)-24,t:-.13,r:175,chain:true});}tell('ROBBANÁS!',.6);}
 function doorBetween(level,a,b){return doors.find(d=>d.level===level&&!d.open&&d.x>Math.min(a,b)&&d.x<Math.max(a,b))||null;}
 function blocked(level,from,to){
  const dir=Math.sign(to-from);if(!dir)return null;
@@ -55,14 +58,16 @@ function moveActor(a,to,speed,dt){
  const dx=to-a.x;if(Math.abs(dx)<1)return null;
  const dir=Math.sign(dx);a.dir=dir;
  const next=clamp(a.x+dir*Math.min(Math.abs(dx),speed*dt),90,WW-90);
+ const oldX=a.x;
  const door=blocked(a.level,a.x,next+dir*26);
  if(door){
    // Wait at a fixed safe distance: do not jump backward each frame.
    const stop=door.x-dir*(a.id!==undefined?105:31);
    if((dir>0&&a.x<stop)||(dir<0&&a.x>stop))a.x=dir>0?Math.min(next,stop):Math.max(next,stop);
+   a.walkDistance=(a.walkDistance||0)+Math.abs(a.x-oldX);
    return door;
  }
- a.x=next;return null;
+ a.x=next;a.walkDistance=(a.walkDistance||0)+Math.abs(a.x-oldX);return null;
 }
 function teamMove(dt){
  const live=living();if(!live.length){finish(false);return;}
@@ -79,9 +84,9 @@ function teamMove(dt){
  if(followers.length){followers[followers.length-1].hp=Math.min(100,followers[followers.length-1].hp+dt*2);}
  const all=[leader,...followers];
  for(const s of live){
-  s.cd-=dt;s.anim+=dt;s.state='walk';
+  s.cd-=dt;s.anim+=dt;s.shotTime=Math.max(0,(s.shotTime||0)-dt);s.hitTime=Math.max(0,(s.hitTime||0)-dt);s.state='walk';
   const target=enemies.filter(e=>e.alive&&e.level===s.level&&e.emerging<=0&&Math.abs(e.x-s.x)<310&&!doorBetween(s.level,s.x,e.x)).sort((a,b)=>Math.abs(a.x-s.x)-Math.abs(b.x-s.x))[0];
-  if(target&&s.cd<=0){s.dir=Math.sign(target.x-s.x)||s.dir;target.hp-=18;s.cd=rnd(.7,1.1);s.state='shoot';sfx('laser_soldier',180,.65);effects.push({x:target.x,y:floorY(target.level)-34,t:0,r:12,small:true});killEnemy(target);}
+  if(target&&s.cd<=0){s.dir=Math.sign(target.x-s.x)||s.dir;target.hp-=18;s.cd=rnd(.7,1.1);s.state='shoot';s.shotTime=.48;sfx('laser_soldier',180,.65);effects.push({x:target.x,y:floorY(target.level)-34,t:0,r:12,small:true});killEnemy(target);}
  }
  if(liftTravel){liftTimer-=dt;all.forEach(s=>s.state='lift');if(liftTimer<=0){const x=elevators[wp.lift].x;for(const s of all){s.level=wp.level;s.x=x+(s.rank-1)*24;s.state='idle';}liftTravel=false;sfx('elevator',450,.5);routeIndex++;tell('LIFT: '+(wp.level+1)+'. SZINT',1.2);}return;}
  if(wp.level!==leader.level){
@@ -138,16 +143,16 @@ function updateHoldDoor(dt){
    if(d.holdProgress>=30){d.open=true;sfx('door',100);d.pending=false;effects.push({x:d.x,y:floorY(d.level)-60,t:0,r:16,small:true});tell('AJTÓ FELTÖRVE · NYITVA!',2);}
  }
 }
-function enemyMove(dt){const live=living();for(const e of enemies){if(!e.alive)continue;e.anim+=dt;e.cd-=dt;e.emerging=Math.max(0,e.emerging-dt);if(e.emerging>0)continue;if(e.type==='spider')sfx('robot_spider',1600,.19);else sfx('robot_wheel',1800,.16);
+function enemyMove(dt){const live=living();for(const e of enemies){if(!e.alive)continue;e.anim+=dt;e.cd-=dt;e.fireAnim=Math.max(0,(e.fireAnim||0)-dt);e.hitTime=Math.max(0,(e.hitTime||0)-dt);e.emerging=Math.max(0,e.emerging-dt);if(e.emerging>0)continue;if(e.type==='spider')sfx('robot_spider',1600,.19);else sfx('robot_wheel',1800,.16);
  if(e.liftTimer>0){e.liftTimer-=dt;if(e.liftTimer<=0){e.level=e.liftTo;e.x=e.liftX;e.liftTo=-1;}continue;}
  const same=live.filter(s=>s.level===e.level);const victim=same.length?same.reduce((a,b)=>Math.abs(a.x-e.x)<Math.abs(b.x-e.x)?a:b):null;
- if(victim){const dist=Math.abs(victim.x-e.x);if(dist>70){const block=moveActor(e,victim.x,e.type==='spider'?75:64,dt);if(block&&e.type==='lizard'&&Math.sign(e.x-block.x)===block.switchSide){e.doorTimer+=dt;if(e.doorTimer>1.5){toggleDoor(block,'enemy');e.doorTimer=0;}}}if(dist<190&&e.cd<=0&&!doorBetween(e.level,e.x,victim.x)){victim.hp-=e.type==='spider'?9:13;e.cd=rnd(1.35,2.0);sfx('laser_robot',230,.65);sfx('hit',160,.4);effects.push({x:victim.x,y:floorY(victim.level)-35,t:0,r:10,small:true});if(victim.hp<=0)victim.alive=false;}}
+ if(victim){const dist=Math.abs(victim.x-e.x);if(dist>70){const block=moveActor(e,victim.x,e.type==='spider'?75:64,dt);if(block&&e.type==='lizard'&&Math.sign(e.x-block.x)===block.switchSide){e.doorTimer+=dt;if(e.doorTimer>1.5){toggleDoor(block,'enemy');e.doorTimer=0;}}}if(dist<190&&e.cd<=0&&!doorBetween(e.level,e.x,victim.x)){victim.hp-=e.type==='spider'?9:13;e.cd=rnd(1.35,2.0);e.fireAnim=.36;sfx('laser_robot',230,.65);sfx('hit',160,.4);effects.push({x:victim.x,y:floorY(victim.level)-35,t:0,r:10,small:true});victim.hitTime=.26;if(victim.hp<=0){victim.alive=false;victim.deathTime=0;victim.deathStarted=true;}}}
  else if(live.length){const victim=live.reduce((a,b)=>Math.abs(a.level-e.level)<Math.abs(b.level-e.level)?a:b);const available=elevators.filter(l=>liftStops(l,e.level)&&liftStops(l,victim.level));if(!available.length)continue;const lift=available.reduce((a,b)=>Math.abs(a.x-e.x)<Math.abs(b.x-e.x)?a:b);const block=moveActor(e,lift.x,e.type==='spider'?78:65,dt);if(block&&e.type==='lizard'&&Math.sign(e.x-block.x)===block.switchSide){e.doorTimer+=dt;if(e.doorTimer>1.5){toggleDoor(block,'enemy');e.doorTimer=0;}}if(Math.abs(e.x-lift.x)<18){e.liftTimer=2.5;sfx('elevator',900,.35);e.liftTo=victim.level;e.liftX=lift.x;}}
  }}
-function update(dt){if(!active)return;elapsed+=dt;spawnAt-=dt;if(spawnAt<=0&&spawnCount<220){spawn();spawnAt=rnd(1.25,2.25);}for(const p of portals)p.flash=Math.max(0,p.flash-dt);teamMove(dt);updateTeamDoors(dt);enemyMove(dt);for(const e of effects){e.t+=dt;if(e.chain&&e.t>=0&&!e.done){e.done=true;explosion(e.x,e.y,e.r);}}effects=effects.filter(e=>e.t<(e.boom?.72:.4));if(!living().length){finish(false);return;}if(elapsed>1100){finish(false);return;}
+function update(dt){if(!active)return;for(const s of soldiers){if(!s.alive)s.deathTime=Math.min(.9,(s.deathTime||0)+dt);}for(const e of enemies){if(!e.alive)e.deathTime=Math.min(.9,(e.deathTime||0)+dt);}elapsed+=dt;spawnAt-=dt;if(spawnAt<=0&&spawnCount<220){spawn();spawnAt=rnd(1.25,2.25);}for(const p of portals)p.flash=Math.max(0,p.flash-dt);teamMove(dt);updateTeamDoors(dt);enemyMove(dt);for(const e of effects){e.t+=dt;if(e.chain&&e.t>=0&&!e.done){e.done=true;explosion(e.x,e.y,e.r);}}effects=effects.filter(e=>e.t<(e.boom?.8:.4));if(!living().length){finish(false);return;}if(elapsed>1100){finish(false);return;}
  $('team').textContent='CSAPAT HP: '+soldiers.map(s=>`${s.id+1}:${Math.max(0,Math.ceil(s.hp))}`).join('  ')+' · '+(living()[0].level+1)+'. SZINT';$('score').textContent=`LŐSZER: ∞ · LÉNYEK: ${frags} · BARÁTI TŰZ: ${friendHits} · FÁZIS: ${routeIndex+1}/${route.length}`;
 }
-function camera(){return {sx:scale,tx:(vw-W*scale)/2-camX*scale,ty:(vh-H*scale)/2-camY*scale};}
+function camera(){return {sx:scale,tx:-camX*scale,ty:-camY*scale};}
 function screenToWorld(x,y){const c=camera();return {x:(x-c.tx)/c.sx,y:(y-c.ty)/c.sx};}
 function aimWorld(){return screenToWorld(aimX,aimY);}
 // Az elforgatott telefon célkeresztje a képernyő szélén a kamerát is görgeti.
@@ -157,7 +162,8 @@ function aimCamera(dt){
  const live=living();if(!live.length)return;
  const center=live.reduce((sum,s)=>sum+s.x,0)/live.length;
  const floor=live[0].level;
- const followX=center-W*.48,followY=floorY(floor)-H*.62;
+ const visibleW=vw/scale,visibleH=vh/scale;
+ const followX=center-visibleW*.48,followY=floorY(floor)-visibleH+16;
  // A képernyő szélső 17%-ában folyamatos pásztázás, nem csak egyszeri eltolás.
  const edgeX=aimX/vw,edgeY=aimY/vh;
  const pushX=edgeX>.83?(edgeX-.83)/.17:edgeX<.17?-(.17-edgeX)/.17:0;
@@ -172,8 +178,11 @@ function aimCamera(dt){
  if(keys.has('ArrowLeft'))lookOffsetX-=650*dt;
  if(keys.has('ArrowUp'))lookOffsetY-=420*dt;
  if(keys.has('ArrowDown'))lookOffsetY+=420*dt;
- const maxX=Math.max(0,WW-W),maxY=Math.max(0,HH-H);
- let tx=clamp(followX+lookOffsetX,0,maxX),ty=clamp(followY+lookOffsetY,0,maxY);
+ const maxX=Math.max(0,WW-vw/scale);
+ // Ne mutassunk üres területet a legalsó járda alatt. A nézet 3 szint magas.
+ const minY=Math.min(floorY(3)-190,Math.max(0,floorY(0)-visibleH));
+ const maxY=Math.max(minY,floorY(0)-visibleH+5);
+ let tx=clamp(followX+lookOffsetX,0,maxX),ty=clamp(followY+lookOffsetY,minY,maxY);
  // Ha elérjük a pálya szélét, ne gyűljön fel láthatatlan túlgörgetés.
  lookOffsetX=tx-followX;lookOffsetY=ty-followY;
  const f=1-Math.exp(-dt*7);
@@ -183,23 +192,32 @@ function setZoom(){zoom=zoom===1?1.2:zoom===1.2?1.5:1;$('zoom').textContent='ZOO
 function setSpeed(){aimSpeed=aimSpeed===1?2:aimSpeed===2?3:1;$('speed').textContent='SEB. '+aimSpeed+'×';tell('CÉLZÁSI SEBESSÉG: '+aimSpeed+'×',.6);}
 function fire(){if(!active)return;const now=performance.now();if(now-lastFire<230)return;lastFire=now;shots++;sfx('laser_player',110);const p=aimWorld(),cand=[];
  for(const s of soldiers)if(s.alive){const d=Math.hypot((p.x-s.x)/23,(p.y-(floorY(s.level)-38))/39);if(d<=1)cand.push({kind:'friend',obj:s,dist:d,priority:0});}
- for(const e of enemies)if(e.alive&&e.emerging<=0){const d=Math.hypot((p.x-e.x)/(e.type==='spider'?39:32),(p.y-(floorY(e.level)-31))/37);if(d<=1)cand.push({kind:'enemy',obj:e,dist:d,priority:1});}
+ for(const e of enemies)if(e.alive&&e.emerging<=0){const d=Math.hypot((p.x-e.x)/(e.type==='spider'?39:49),(p.y-(floorY(e.level)-54))/(e.type==='spider'?37:55));if(d<=1)cand.push({kind:'enemy',obj:e,dist:d,priority:1});}
  for(const b of barrels)if(b.alive&&Math.abs(p.x-b.x)<23&&Math.abs(p.y-(floorY(b.level)-24))<30)cand.push({kind:'barrel',obj:b,dist:0,priority:2});
- for(const d of doors){for(const side of [d.switchSide]){const sx=d.x+side*75;if(!d.holdDoor&&Math.abs(p.x-sx)<28&&Math.abs(p.y-(floorY(d.level)-117))<26)cand.push({kind:'switch',obj:d,dist:0,priority:2});}}
+ for(const d of doors){const sw=doorSwitchPoint(d);if(!d.holdDoor&&Math.abs(p.x-sw.x)<16&&Math.abs(p.y-sw.y)<19)cand.push({kind:'switch',obj:d,dist:0,priority:-1});}
  cand.sort((a,b)=>a.priority-b.priority||a.dist-b.dist);const c=cand[0];const mark=$('impact');mark.style.left=aimX+'px';mark.style.top=aimY+'px';mark.style.display='block';mark.style.borderColor=c?'white':'#888';setTimeout(()=>mark.style.display='none',210);if(!c)return;hits++;if(c.kind==='enemy'||c.kind==='friend')sfx('hit',110,.7);
- if(c.kind==='friend'){c.obj.hp-=45;friendHits++;tell('BARÁTI TŰZ!',1);if(c.obj.hp<=0)c.obj.alive=false;}
- if(c.kind==='enemy'){const e=c.obj,fy=floorY(e.level);const crit=e.type==='spider'?Math.hypot(p.x-e.x,p.y-(fy-27))<12:Math.hypot(p.x-e.x,p.y-(fy-54))<12;e.hp-=crit?999:48;killEnemy(e);tell(crit?'KRITIKUS TALÁLAT!':'TALÁLAT',.5);}
+ if(c.kind==='friend'){c.obj.hp-=45;friendHits++;tell('BARÁTI TŰZ!',1);if(c.obj.hp<=0){c.obj.alive=false;c.obj.deathTime=0;c.obj.deathStarted=true;}else c.obj.hitTime=.26;}
+ if(c.kind==='enemy'){const e=c.obj,fy=floorY(e.level);const crit=e.type==='spider'?Math.hypot(p.x-e.x,p.y-(fy-27))<12:Math.hypot(p.x-e.x,p.y-(fy-72))<15;e.hp-=crit?999:48;e.hitTime=.26;killEnemy(e);tell(crit?'KRITIKUS TALÁLAT!':'TALÁLAT',.5);}
  if(c.kind==='barrel'){c.obj.alive=false;explosion(c.obj.x,floorY(c.obj.level)-25);}
  if(c.kind==='switch')toggleDoor(c.obj,'player');
 }
 function bar(x,y,w,v){ctx.fillStyle='#111';ctx.fillRect(x,y,w,6);ctx.fillStyle='#fff';ctx.fillRect(x+1,y+1,(w-2)*clamp(v,0,1),4);ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.strokeRect(x,y,w,6);}
 // ORION v3.2: teljes falblokkok, egyetlen 160x190-es grafikai cellában.
 // A játéklogikai objektumok koordinátái változatlanok; csak a szintek közeledtek egymáshoz.
-const TILE_W=160,TILE_H=190,GRID_X=50;
-const ASSET_NAMES=['wall','window','door_side','enemy_hatch','lift_stop','lift_shaft','entrance','console','barrel','soldier_male','soldier_female','spider','wheeled_robot'];
+const TILE_W=160,TILE_H=190,GRID_X=50; // megjelenítési méret; atlaszcellák 400×475 px
+// ORION v3.4: a teljes falgrafika egyetlen, 3x3 cellás PNG-atlaszban van.
+const WALL_ATLAS={wall:0,console:1,window:2,entrance:3,enemy_hatch:4,lift_stop:5,lift_open:6,door_side:7,door_side_open:8,lift_shaft:0};
+const wallAtlas=new Image();wallAtlas.src='assets/walls_atlas.png';
+const ROBOT_FRAME_SIZE=256;
+const ASSET_NAMES=['barrel','soldier_male','soldier_female','spider','wheeled_robot','explosion'];
 const sprites={};for(const n of ASSET_NAMES){const img=new Image();img.src='assets/'+n+'.png';sprites[n]=img;}
-function tile(name,x,y,w=160,h=190){const img=sprites[name];if(img&&img.complete&&img.naturalWidth)ctx.drawImage(img,x,y,w,h);else{ctx.fillStyle='#888';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#bbb';ctx.strokeRect(x,y,w,h);}}
-function frameSprite(name,frame,x,ground,w=96,h=112,dir=1){const img=sprites[name];if(!img||!img.complete||!img.naturalWidth)return;ctx.save();ctx.translate(x,ground);ctx.scale(dir,1);ctx.drawImage(img,(frame%6)*96,Math.floor(frame/6)*112,96,112,-w/2,-h*104/112,w,h);ctx.restore();}
+function tile(name,x,y,w=160,h=190){
+ const id=WALL_ATLAS[name];
+ if(id!==undefined&&wallAtlas.complete&&wallAtlas.naturalWidth){ctx.drawImage(wallAtlas,(id%3)*400,Math.floor(id/3)*475,400,475,x,y,w,h);return;}
+ const img=sprites[name];if(img&&img.complete&&img.naturalWidth){ctx.drawImage(img,x,y,w,h);return;}
+ ctx.fillStyle='#888';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#bbb';ctx.strokeRect(x,y,w,h);
+}
+function frameSprite(name,frame,x,ground,w=96,h=112,dir=1){const img=sprites[name];if(!img||!img.complete||!img.naturalWidth)return;const cell=ROBOT_FRAME_SIZE,cellH=ROBOT_FRAME_SIZE;ctx.save();ctx.translate(x,ground);ctx.scale(dir,1);ctx.drawImage(img,(frame%6)*cell,Math.floor(frame/6)*cellH,cell,cellH,-w/2,-h,w,h);ctx.restore();}
 function background(){ctx.fillStyle='#242424';ctx.fillRect(0,0,WW,HH);
  ctx.fillStyle='#e0e0e0';ctx.font='bold 25px monospace';ctx.fillText('ORION · KUTATÓBÁZIS',115,80);
  for(let f=0;f<4;f++){
@@ -218,22 +236,39 @@ function background(){ctx.fillStyle='#242424';ctx.fillRect(0,0,WW,HH);
     const d=feature.obj;
     // Kapcsolóval együtt tükrözzük a teljes blokkot; kapcsoló alapból balra.
     ctx.save();if(d.switchSide>0){ctx.translate(2*x+TILE_W,0);ctx.scale(-1,1);}
-    tile('door_side',x,y-TILE_H);ctx.restore();
-    // Zárva falszínű, nyitva sötét csík; ugyanaz a PNG.
-    ctx.fillStyle=d.open?'#252525':'#a7a7a7';ctx.fillRect(x+TILE_W/2-7,y-TILE_H+25,14,TILE_H-46);
-    ctx.strokeStyle=d.open?'#777':'#dedede';ctx.lineWidth=2;ctx.strokeRect(x+TILE_W/2-7,y-TILE_H+25,14,TILE_H-46);
+    tile(d.open?'door_side_open':'door_side',x,y-TILE_H);ctx.restore();
    }else tile(kind,x,y-TILE_H);
    if(kind==='enemy_hatch'&&feature&&feature.obj.flash>0){ctx.fillStyle='#eee';ctx.fillRect(x+65,y-105,30,12);}
    ctx.restore();
   }
-  ctx.fillStyle='#ddd';ctx.fillRect(GRID_X,y,WW-GRID_X*2,5);
+  // A járda a falatlasz része; a zárt merőleges ajtó alatt nem rajzolunk rá folyamatos padlóvonalat.
  }
 }
-function consoleDraw(){const wp=route[4],y=floorY(wp.level);ctx.fillStyle='#fff';ctx.font='bold 15px monospace';ctx.fillText(routeIndex===4?'FELTÖRÉS '+Math.ceil(Math.max(0,30-holdTime))+'s':'KONZOL',wp.x-58,y-195);if(routeIndex===4)bar(wp.x-37,y-189,74,holdTime/30);}
-function soldierDraw(s){if(!s.alive)return;const y=floorY(s.level);const fr=s.state==='shoot'?6:s.state==='work'?8:s.state==='walk'?1+Math.floor(s.anim*8)%4:0;frameSprite(s.id===1?'soldier_female':'soldier_male',fr,s.x,y+12,88,104,s.dir||1);ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.fillText(String(s.id+1),s.x-4,y-36);bar(s.x-25,y-114,50,s.hp/100);}
-function enemyDraw(e){if(!e.alive)return;const y=floorY(e.level);ctx.save();ctx.globalAlpha=1-e.emerging/.75;frameSprite(e.type==='spider'?'spider':'wheeled_robot',1+Math.floor(e.anim*8)%4,e.x,y+12,96,104,e.dir||1);ctx.restore();bar(e.x-25,y-114,50,e.hp/(e.type==='spider'?45:85));}
-function barrelDraw(b){if(b.alive)tile('barrel',b.x-23,floorY(b.level)-43,46,55);}
-function worldDraw(){background();consoleDraw();for(const b of barrels)barrelDraw(b);for(const s of soldiers)soldierDraw(s);for(const e of enemies)enemyDraw(e);for(const fx of effects){if(fx.t<0)continue;ctx.save();ctx.globalAlpha=Math.max(0,1-fx.t/(fx.boom?.72:.4));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx.x,fx.y,fx.boom?fx.r*(.2+fx.t):fx.r,0,Math.PI*2);ctx.fill();ctx.restore();}}
+function consoleDraw(){const wp=route[4],y=floorY(wp.level);ctx.fillStyle='#fff';ctx.font='bold 15px monospace';if(routeIndex===4)ctx.fillText('FELTÖRÉS '+Math.ceil(Math.max(0,30-holdTime))+'s',wp.x-58,y-195);if(routeIndex===4)bar(wp.x-37,y-189,74,holdTime/30);}
+function soldierDraw(s){
+ const y=floorY(s.level);
+ // A lövés a hanggal azonos pillanatban indul, 0.48 s alatt egyszer fut le.
+ // A találat 0.26 s visszarántás, az elesés 0.90 s alatt 6 fázis.
+ let fr=0;
+ if(!s.alive)fr=12+Math.min(5,Math.floor((s.deathTime||0)/.9*6));
+ else if(s.hitTime>0)fr=12+Math.min(1,Math.floor((.26-s.hitTime)/.13));
+ else if(s.shotTime>0)fr=6+Math.min(5,Math.floor((.48-s.shotTime)/.48*6));
+ else if(s.state==='walk')fr=Math.floor((s.walkDistance||0)/(32.0/2))%4;
+ frameSprite(s.id===1?'soldier_female':'soldier_male',fr,s.x,y-10.5,88,104,s.dir||1);
+ if(!s.alive)return;
+ ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.fillText(String(s.id+1),s.x-4,y-69);bar(s.x-25,y-147,50,s.hp/100);
+}
+function enemyDraw(e){
+ if(!e.alive&&(e.deathTime||0)>.89)return;const y=floorY(e.level);ctx.save();ctx.globalAlpha=e.alive?1-e.emerging/.75:1;
+ // 6x2 robot-atlasz: 0-3 mozgás, 6-8 lövés, 9-11 találat/megsemmisülés.
+ const fr=!e.alive?9+Math.min(2,Math.floor((e.deathTime||0)/.9*3)):
+  e.hitTime>0?9:e.fireAnim>0?6+Math.min(2,Math.floor((.36-e.fireAnim)/.12)):
+  Math.floor((e.walkDistance||e.anim*75)/12)%4;
+ frameSprite(e.type==='spider'?'spider':'wheeled_robot',fr,e.x,y-10.5,96,104,e.dir||1);
+ ctx.restore();if(e.alive)bar(e.x-25,y-147,50,e.hp/(e.type==='spider'?45:85));
+}
+function barrelDraw(b){if(b.alive)tile('barrel',b.x-23,floorY(b.level)-10.5-55,46,55);}
+function worldDraw(){background();consoleDraw();for(const b of barrels)barrelDraw(b);for(const s of soldiers)soldierDraw(s);for(const e of enemies)enemyDraw(e);for(const fx of effects){if(fx.t<0)continue;if(fx.boom){const fr=Math.min(11,Math.floor(fx.t/.8*12));frameSprite('explosion',fr,fx.x,fx.y+76,170,160,1);}else{ctx.save();ctx.globalAlpha=Math.max(0,1-fx.t/.4);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(fx.x-8,fx.y-8);ctx.lineTo(fx.x+8,fx.y+8);ctx.moveTo(fx.x-8,fx.y+8);ctx.lineTo(fx.x+8,fx.y-8);ctx.stroke();ctx.restore();}}}
 function draw(){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#060606';ctx.fillRect(0,0,vw,vh);const c=camera();ctx.save();ctx.translate(c.tx,c.ty);ctx.scale(c.sx,c.sx);worldDraw();ctx.restore();if(zoom>1){const r=Math.min(vw,vh)*.1025,cx=aimX,cy=aimY;ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();ctx.translate(cx*(1-zoom),cy*(1-zoom));ctx.scale(zoom,zoom);ctx.fillStyle='#080808';ctx.fillRect(0,0,vw,vh);ctx.save();ctx.translate(c.tx,c.ty);ctx.scale(c.sx,c.sx);worldDraw();ctx.restore();ctx.restore();ctx.save();ctx.strokeStyle='#eee';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();ctx.restore();}}
 function frame(t){const dt=Math.min((t-(prevFrame||t))/1000,.05);prevFrame=t;update(dt);aimCamera(dt);draw();if(t>noticeUntil)$('notice').textContent='';requestAnimationFrame(frame);}requestAnimationFrame(frame);
 // Stable orientation-to-aim mapping from the tested HEATWAVE v2.4; no grid.

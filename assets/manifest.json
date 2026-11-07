@@ -1,31 +1,54 @@
 {
+  "atlas": "walls_atlas.png",
   "tile_size": [
+    400,
+    475
+  ],
+  "grid": [
+    3,
+    3
+  ],
+  "display_tile_size": [
     160,
     190
   ],
-  "tile_types": [
-    "wall",
-    "window",
-    "door_side",
-    "lift_stop",
-    "lift_shaft",
-    "enemy_hatch",
-    "console",
-    "entrance"
-  ],
-  "door_side": {
-    "one_png": true,
-    "mirror_for_switch_right": true,
-    "state_runtime_stripe": true
+  "tiles": {
+    "wall": [
+      0,
+      0
+    ],
+    "console": [
+      1,
+      0
+    ],
+    "window": [
+      2,
+      0
+    ],
+    "door_wall_closed": [
+      0,
+      1
+    ],
+    "door_wall_open": [
+      1,
+      1
+    ],
+    "lift_closed": [
+      2,
+      1
+    ],
+    "lift_open": [
+      0,
+      2
+    ],
+    "door_side_closed": [
+      1,
+      2
+    ],
+    "door_side_open": [
+      2,
+      2
+    ]
   },
-  "sprite_frame": [
-    96,
-    112
-  ],
-  "sprite_grid": [
-    6,
-    2
-  ],
-  "baseline_from_top": 104,
-  "notes": "Minden ajtó/lift/konzol teljes falelem. Szintköz 190 pixel."
+  "notes": "entrance uses door_wall_closed; enemy_hatch uses door_wall_open; lift_shaft uses wall. Switch on perpendicular door mirrored in game."
 }
