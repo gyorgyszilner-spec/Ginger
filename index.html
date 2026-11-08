@@ -132,10 +132,10 @@ function teamMove(dt){
  // Stable formation: changing HP must not instantly swap the leader every frame.
  formationCooldown=Math.max(0,formationCooldown-dt);
  const ordered=[...live].sort((a,b)=>b.hp-a.hp||a.id-b.id);
- const wanted=[...live].sort((a,b)=>a.hp-b.hp||a.id-b.id)[0];
+ const wanted=ordered[0];
  let leader=live.find(s=>s.id===formationLeaderId);
  if(!leader){leader=wanted;formationLeaderId=leader.id;formationCooldown=4;}
- else if(formationCooldown===0&&wanted!==leader&&wanted.hp<=leader.hp-10){leader=wanted;formationLeaderId=leader.id;formationCooldown=8;}
+ else if(formationCooldown===0&&wanted!==leader&&wanted.hp>=leader.hp+10){leader=wanted;formationLeaderId=leader.id;formationCooldown=8;}
  const followers=live.filter(s=>s!==leader).sort((a,b)=>b.hp-a.hp||a.id-b.id);
  leader.rank=0;followers.forEach((s,i)=>s.rank=i+1);
  if(followers.length){followers[followers.length-1].hp=Math.min(100,followers[followers.length-1].hp+dt*2);}
