@@ -36,6 +36,15 @@ for(const [name,file] of Object.entries(AUDIO_FILES)){const a=new Audio('audio/s
 function syncMusic(){sound.music.volume=sound.enabled?sound.musicVol:0;if(sound.ready&&sound.enabled&&sound.music.paused)sound.music.play().catch(()=>{});if(!sound.enabled)sound.music.pause();}
 function soundStart(){sound.ready=true;syncMusic();}
 function sfx(name,minGap=0,level=1){if(!sound.ready||!sound.enabled||sound.sfxVol===0)return;const base=sound.clips[name];if(!base)return;const t=performance.now();if(t-(sound.last[name]||-1e6)<minGap)return;sound.last[name]=t;const a=base.cloneNode();a.volume=Math.min(1,sound.sfxVol*level);a.play().catch(()=>{});a.addEventListener('ended',()=>{a.src='';},{once:true});}
+// Magyar böngészőbeszéd: rövid, gyorsított üzenetek, hangerő a Beszéd csúszkáról.
+let voiceLast={};
+function speak(line,key=line,gap=1200){
+ if(!sound.ready||!sound.enabled||sound.voiceVol<=0||!('speechSynthesis' in window))return;
+ const now=performance.now();if(now-(voiceLast[key]??-1e9)<gap)return;voiceLast[key]=now;
+ const u=new SpeechSynthesisUtterance(line);u.lang='hu-HU';u.rate=1.35;u.volume=sound.voiceVol;
+ const voices=speechSynthesis.getVoices();u.voice=voices.find(v=>v.lang.toLowerCase().startsWith('hu'))||null;
+ speechSynthesis.speak(u);
+}
 function setSoundUI(){document.getElementById('soundToggle').textContent=sound.enabled?'🔊 HANG':'🔇 NÉMA';syncMusic();}
 $('soundToggle').addEventListener('click',()=>{sound.enabled=!sound.enabled;setSoundUI();});
 $('soundSettings').addEventListener('click',()=>{$('soundPanel').hidden=!$('soundPanel').hidden;});
@@ -45,6 +54,7 @@ const W=1650,H=900,WW=3300,HH=1050,FLOORS=[880,690,500,310],clamp=(x,a,b)=>Math.
 let vw=innerWidth,vh=innerHeight,dpr=1,scale=1,aimX=vw/2,aimY=vh/2,camX=0,camY=0,zoom=1,aimSpeed=2,desktop=false,started=false,active=false,finished=false,prevFrame=0,elapsed=0,shots=0,hits=0,frags=0,friendHits=0,spawnAt=0,spawnCount=0,lastFire=0,noticeUntil=0,base=null,lastGood=null,prev=null,filtered={x:0,y:0},lastTime=0,seen=0;
 let formationLeaderId=0,formationCooldown=0;
 let soldiers=[],enemies=[],barrels=[],doors=[],portals=[],effects=[],routeIndex=0,holdTime=0,liftTimer=0,liftTravel=false,routeNotice=false,keys=new Set(),manualCamX=0,manualCamY=0;
+let liftCamera=null,liftReady={},hackMarks=0,doorVoiceRoute=-1;
 const route=[{level:0,x:2870},{level:2,x:2870,lift:1},{level:2,x:470},{level:1,x:470,lift:0},{level:1,x:2550,hold:30},{level:1,x:470},{level:3,x:470,lift:0},{level:3,x:2870},{level:0,x:2870,lift:1},{level:0,x:170,exit:true}];
 const elevators=[{x:470,stops:[0,1,2,3]},{x:2870,stops:[0,2,3]}];
 function liftStops(lift,level){return lift.stops.includes(level);}
@@ -54,8 +64,27 @@ function tell(s,t=1.2){$('notice').textContent=s;noticeUntil=performance.now()+t
 function floorY(n){return FLOORS[n];}
 // A kapcsolók és az ütközés pontosan a kirajzolt falcellákhoz igazodnak.
 function tileCenter(x){return 50+80+Math.round((x-50-80)/160)*160;}
+function liftButtonPoint(lift,level){return {x:lift.x-57,y:floorY(level)-87};}
+function callLift(lift,level){
+ if(!liftStops(lift,level))return;
+ const idx=elevators.indexOf(lift);liftReady[idx+':'+level]=true;
+ sfx('door',100);tell('LIFT HÍVVA · AJTÓ NYITVA',1.1);
+ // A csapat a felvonóba azonnal beszáll, ha már a lift előtt várakozik.
+ const wp=route[routeIndex],live=living();
+ if(wp&&wp.lift===idx&&wp.level!==level&&live.length&&live.every(s=>s.level===level&&Math.abs(s.x-lift.x)<220)){
+  beginLift(wp,live);
+ }
+}
+function beginLift(wp,live){
+ const lift=elevators[wp.lift];if(liftTravel||!liftStops(lift,live[0].level)||!liftStops(lift,wp.level))return;
+ const from=live[0].level,to=wp.level;
+ for(const s of live){s.x=lift.x+(s.rank-1)*24;s.state='lift';}
+ liftTravel=true;liftTimer=2.1;
+ liftCamera={x:lift.x,from,to,elapsed:0,duration:2.1};
+ sfx('elevator',450);tell('LIFT INDUL · '+(to>from?'FEL':'LE'),1.4);
+}
 function doorSwitchPoint(d){return {x:d.x+(d.switchSide<0?-32:32),y:floorY(d.level)-87};}
-function init(){routeIndex=0;formationLeaderId=0;formationCooldown=0;holdTime=0;liftTimer=0;liftTravel=false;routeNotice=false;camX=0;camY=0;manualCamX=0;manualCamY=0;elapsed=shots=hits=frags=friendHits=spawnCount=0;spawnAt=1.4;zoom=1;lastFire=0;active=true;finished=false;effects=[];
+function init(){routeIndex=0;formationLeaderId=0;formationCooldown=0;holdTime=0;liftTimer=0;liftTravel=false;liftCamera=null;liftReady={};hackMarks=0;doorVoiceRoute=-1;routeNotice=false;voiceLast={};if('speechSynthesis' in window)speechSynthesis.cancel();camX=0;camY=0;manualCamX=0;manualCamY=0;elapsed=shots=hits=frags=friendHits=spawnCount=0;spawnAt=1.4;zoom=1;lastFire=0;active=true;finished=false;effects=[];
  soldiers=[0,1,2].map(i=>({x:170-i*53,level:0,hp:100,alive:true,cd:rnd(.2,.8),rank:i,dir:1,anim:0,state:'walk',id:i,walkDistance:0,shotTime:0,hitTime:0,deathTime:0,deathStarted:false}));
  // switchSide: -1 = bal oldal, +1 = jobb oldal. MINDEN ajtón pontosan egy kapcsoló.
  doors=[{x:880,level:0,open:false,switchSide:-1},{x:1970,level:0,open:false,switchSide:1},
@@ -111,11 +140,11 @@ function teamMove(dt){
   const target=enemies.filter(e=>e.alive&&e.level===s.level&&e.emerging<=0&&Math.abs(e.x-s.x)<310&&!doorBetween(s.level,s.x,e.x)).sort((a,b)=>Math.abs(a.x-s.x)-Math.abs(b.x-s.x))[0];
   if(target&&s.cd<=0){s.dir=Math.sign(target.x-s.x)||s.dir;target.hp-=18;s.cd=rnd(.7,1.1);s.state='shoot';s.shotTime=.48;sfx('laser_soldier',180,.65);effects.push({x:target.x,y:floorY(target.level)-34,t:0,r:12,small:true});killEnemy(target);}
  }
- if(liftTravel){liftTimer-=dt;all.forEach(s=>s.state='lift');if(liftTimer<=0){const x=elevators[wp.lift].x;for(const s of all){s.level=wp.level;s.x=x+(s.rank-1)*24;s.state='idle';}liftTravel=false;sfx('elevator',450,.5);routeIndex++;tell('LIFT: '+(wp.level+1)+'. SZINT',1.2);}return;}
+ if(liftTravel){liftTimer-=dt;if(liftCamera)liftCamera.elapsed=Math.min(liftCamera.duration,liftCamera.elapsed+dt);all.forEach(s=>s.state='lift');if(liftTimer<=0){const x=elevators[wp.lift].x;for(const s of all){s.level=wp.level;s.x=x+(s.rank-1)*24;s.state='idle';}liftTravel=false;liftCamera=null;sfx('elevator',450,.5);routeIndex++;tell('LIFT: '+(wp.level+1)+'. SZINT',1.2);}return;}
  if(wp.level!==leader.level){
   const ex=elevators[wp.lift].x;let allIn=true;
   for(const s of all){const goal=ex+(s.rank-1)*24;const door=moveActor(s,goal,s===leader?75:105,dt);if(door)handleTeamDoor(door,dt);if(Math.abs(s.x-goal)>14)allIn=false;}
-  if(allIn&&liftStops(elevators[wp.lift],leader.level)&&liftStops(elevators[wp.lift],wp.level)){liftTravel=true;liftTimer=2.1;sfx('elevator',450);tell('MINDEN ÉLŐ BESZÁLLT · LIFT INDUL',1.4);}return;
+  if(allIn&&liftStops(elevators[wp.lift],leader.level)&&liftStops(elevators[wp.lift],wp.level)){beginLift(wp,all);}return;
  }
  // Movement direction is based on the route, never on the soldiers' transient facing.
  const dir=Math.sign(wp.x-leader.x)||1;
@@ -126,10 +155,13 @@ function teamMove(dt){
   for(const s of followers){const goal=clamp(wp.x-dir*s.rank*53,90,WW-90);const door=moveActor(s,goal,105,dt);if(door)handleTeamDoor(door,dt);if(Math.abs(s.x-goal)>18)assembled=false;}
   leader.state='idle';
   if(!assembled)return;
-  if(wp.hold){holdTime+=dt;all.forEach(s=>s.state='work');if(!routeNotice){tell('KONZOL FELTÖRÉSE · 30 MP · FEDEZD ŐKET!',2);routeNotice=true;}if(holdTime<wp.hold)return;holdTime=0;routeNotice=false;tell('KONZOL FELTÖRVE · VISSZAVONULÁS!',2);}
+  if(wp.hold){holdTime+=dt;all.forEach(s=>s.state='work');if(!routeNotice){tell('KONZOL FELTÖRÉSE · 30 MP · FEDEZD ŐKET!',2);speak('Megkezdtük a hekkelést, harminc másodperc, fedezz!','hackstart');routeNotice=true;hackMarks=0;}
+   if(holdTime>=10&&!(hackMarks&1)){hackMarks|=1;speak('Még 20 másodperc.','hack20');}
+   if(holdTime>=20&&!(hackMarks&2)){hackMarks|=2;speak('Még 10 másodperc.','hack10');}
+   if(holdTime<wp.hold)return;holdTime=0;routeNotice=false;speak('Végeztünk, indulunk vissza.','hackend');tell('KONZOL FELTÖRVE · VISSZAVONULÁS!',2);}
   if(wp.exit){finish(true);return;}routeIndex++;return;
  }
- const door=moveActor(leader,wp.x,66,dt);if(door)handleTeamDoor(door,dt);
+ const door=moveActor(leader,wp.x,66,dt);if(door){handleTeamDoor(door,dt);if(!door.teamWaiting&&doorVoiceRoute!==routeIndex){speak('Lődd ki a kapcsolót!','blocked'+routeIndex);doorVoiceRoute=routeIndex;}}
  for(const s of followers){const goal=clamp(leader.x-dir*s.rank*53,90,WW-90);const block=moveActor(s,goal,clamp(Math.abs(goal-s.x)*2,35,110),dt);if(block)handleTeamDoor(block,dt);}
 }
 function handleTeamDoor(d,dt){
@@ -170,9 +202,9 @@ function enemyMove(dt){const live=living();for(const e of enemies){if(!e.alive)c
  if(e.liftTimer>0){e.liftTimer-=dt;if(e.liftTimer<=0){e.level=e.liftTo;e.x=e.liftX;e.liftTo=-1;}continue;}
  const same=live.filter(s=>s.level===e.level);const victim=same.length?same.reduce((a,b)=>Math.abs(a.x-e.x)<Math.abs(b.x-e.x)?a:b):null;
  if(victim){const dist=Math.abs(victim.x-e.x);if(dist>70){const block=moveActor(e,victim.x,e.type==='spider'?75:64,dt);if(block&&e.type==='lizard'&&Math.sign(e.x-block.x)===block.switchSide){e.doorTimer+=dt;if(e.doorTimer>1.5){toggleDoor(block,'enemy');e.doorTimer=0;}}}if(dist<190&&e.cd<=0&&!doorBetween(e.level,e.x,victim.x)){victim.hp-=e.type==='spider'?9:13;e.cd=rnd(1.35,2.0);e.fireAnim=.36;sfx('laser_robot',230,.65);sfx('hit',160,.4);effects.push({x:victim.x,y:floorY(victim.level)-35,t:0,r:10,small:true});victim.hitTime=.26;if(victim.hp<=0){victim.alive=false;victim.deathTime=0;victim.deathStarted=true;}}}
- else if(live.length){const victim=live.reduce((a,b)=>Math.abs(a.level-e.level)<Math.abs(b.level-e.level)?a:b);const available=elevators.filter(l=>liftStops(l,e.level)&&liftStops(l,victim.level));if(!available.length)continue;const lift=available.reduce((a,b)=>Math.abs(a.x-e.x)<Math.abs(b.x-e.x)?a:b);const block=moveActor(e,lift.x,e.type==='spider'?78:65,dt);if(block&&e.type==='lizard'&&Math.sign(e.x-block.x)===block.switchSide){e.doorTimer+=dt;if(e.doorTimer>1.5){toggleDoor(block,'enemy');e.doorTimer=0;}}if(Math.abs(e.x-lift.x)<18){e.liftTimer=2.5;sfx('elevator',900,.35);e.liftTo=victim.level;e.liftX=lift.x;}}
+ else if(live.length){const victim=live.reduce((a,b)=>Math.abs(a.level-e.level)<Math.abs(b.level-e.level)?a:b);const available=elevators.filter(l=>liftStops(l,e.level)&&liftStops(l,victim.level));if(!available.length)continue;const lift=available.reduce((a,b)=>Math.abs(a.x-e.x)<Math.abs(b.x-e.x)?a:b);const block=moveActor(e,lift.x,e.type==='spider'?78:65,dt);if(block&&e.type==='lizard'&&Math.sign(e.x-block.x)===block.switchSide){e.doorTimer+=dt;if(e.doorTimer>1.5){toggleDoor(block,'enemy');e.doorTimer=0;}}if(Math.abs(e.x-lift.x)<18){if(liftReady[elevators.indexOf(lift)+':'+e.level]||liftReady[elevators.indexOf(lift)+':'+victim.level])continue;e.liftTimer=2.5;sfx('elevator',900,.35);e.liftTo=victim.level;e.liftX=lift.x;}}
  }}
-function update(dt){if(!active)return;for(const s of soldiers){if(!s.alive)s.deathTime=Math.min(.9,(s.deathTime||0)+dt);}for(const e of enemies){if(!e.alive)e.deathTime=Math.min(.9,(e.deathTime||0)+dt);}elapsed+=dt;spawnAt-=dt;if(spawnAt<=0&&spawnCount<220){spawn();spawnAt=rnd(1.25,2.25);}for(const p of portals)p.flash=Math.max(0,p.flash-dt);teamMove(dt);updateTeamDoors(dt);enemyMove(dt);for(const e of effects){e.t+=dt;if(e.chain&&e.t>=0&&!e.done){e.done=true;explosion(e.x,e.y,e.r);}}effects=effects.filter(e=>e.t<(e.boom?.8:.4));if(!living().length){finish(false);return;}if(elapsed>1100){finish(false);return;}
+function update(dt){if(!active)return;const beforeAlive=soldiers.filter(s=>s.alive).length;for(const s of soldiers){if(!s.alive)s.deathTime=Math.min(.9,(s.deathTime||0)+dt);}for(const e of enemies){if(!e.alive)e.deathTime=Math.min(.9,(e.deathTime||0)+dt);}elapsed+=dt;spawnAt-=dt;if(spawnAt<=0&&spawnCount<220){spawn();spawnAt=rnd(1.25,2.25);}for(const p of portals)p.flash=Math.max(0,p.flash-dt);teamMove(dt);updateTeamDoors(dt);enemyMove(dt);const lost=beforeAlive-soldiers.filter(s=>s.alive).length;for(let i=0;i<lost;i++)speak('Egy ember elesett.','death'+(beforeAlive-i),0);for(const e of effects){e.t+=dt;if(e.chain&&e.t>=0&&!e.done){e.done=true;explosion(e.x,e.y,e.r);}}effects=effects.filter(e=>e.t<(e.boom?.8:.4));if(!living().length){finish(false);return;}if(elapsed>1100){finish(false);return;}
  $('team').textContent='CSAPAT HP: '+soldiers.map(s=>`${s.id+1}:${Math.max(0,Math.ceil(s.hp))}`).join('  ')+' · '+(living()[0].level+1)+'. SZINT';$('score').textContent=`LŐSZER: ∞ · LÉNYEK: ${frags} · BARÁTI TŰZ: ${friendHits} · FÁZIS: ${routeIndex+1}/${route.length}`;
 }
 function camera(){return {sx:scale,tx:-camX*scale,ty:topBandH()-camY*scale};}
@@ -197,6 +229,16 @@ function updateScrollZone(){
  $('scrollDown').classList.toggle('scrolling',scrollVertical===1);
 }
 function aimCamera(dt){
+ // Liftút alatt a kamera a szintek között halad, a katonák célállomásra teleportálása előtt.
+ if(liftCamera){
+  const lc=liftCamera,visibleW=vw/scale,visibleH=(vh-topBandH()-bottomBandH())/scale;
+  const minY=Math.min(floorY(3)-190,Math.max(0,floorY(0)-visibleH));
+  const maxY=Math.max(minY,floorY(0)-visibleH+5);
+  const t=Math.min(1,lc.elapsed/lc.duration),smooth=t*t*(3-2*t);
+  camX=clamp(lc.x-visibleW*.48,0,Math.max(0,WW-visibleW));
+  camY=clamp(floorY(lc.from)-visibleH+16+(floorY(lc.to)-floorY(lc.from))*smooth,minY,maxY);
+  updateScrollZone();return;
+ }
  const live=living();if(!live.length){scrollDirection=scrollVertical=0;return;}
  const center=live.reduce((sum,s)=>sum+s.x,0)/live.length;
  const floor=live[0].level;
@@ -224,11 +266,13 @@ function fire(){if(!active)return;const now=performance.now();if(now-lastFire<23
  for(const e of enemies)if(e.alive&&e.emerging<=0){const d=Math.hypot((p.x-e.x)/(e.type==='spider'?39:49),(p.y-(floorY(e.level)-54))/(e.type==='spider'?37:55));if(d<=1)cand.push({kind:'enemy',obj:e,dist:d,priority:1});}
  for(const b of barrels)if(b.alive&&Math.abs(p.x-b.x)<23&&Math.abs(p.y-(floorY(b.level)-24))<30)cand.push({kind:'barrel',obj:b,dist:0,priority:2});
  for(const d of doors){const sw=doorSwitchPoint(d);if(!d.holdDoor&&Math.abs(p.x-sw.x)<16&&Math.abs(p.y-sw.y)<19)cand.push({kind:'switch',obj:d,dist:0,priority:-1});}
+ for(const lift of elevators)for(const level of lift.stops){const sw=liftButtonPoint(lift,level);if(Math.abs(p.x-sw.x)<19&&Math.abs(p.y-sw.y)<21)cand.push({kind:'liftbutton',obj:lift,level,dist:0,priority:-2});}
  cand.sort((a,b)=>a.priority-b.priority||a.dist-b.dist);const c=cand[0];const mark=$('impact');mark.style.left=aimX+'px';mark.style.top=aimY+'px';mark.style.display='block';mark.style.borderColor=c?'white':'#888';setTimeout(()=>mark.style.display='none',210);if(!c)return;hits++;if(c.kind==='enemy'||c.kind==='friend')sfx('hit',110,.7);
- if(c.kind==='friend'){c.obj.hp-=45;friendHits++;tell('BARÁTI TŰZ!',1);if(c.obj.hp<=0){c.obj.alive=false;c.obj.deathTime=0;c.obj.deathStarted=true;}else c.obj.hitTime=.26;}
+ if(c.kind==='friend'){c.obj.hp-=45;friendHits++;tell('BARÁTI TŰZ!',1);if(c.obj.hp<=0){c.obj.alive=false;c.obj.deathTime=0;c.obj.deathStarted=true;speak('Egy ember elesett.','death'+living().length,0);}else c.obj.hitTime=.26;}
  if(c.kind==='enemy'){const e=c.obj,fy=floorY(e.level);const crit=e.type==='spider'?Math.hypot(p.x-e.x,p.y-(fy-27))<12:Math.hypot(p.x-e.x,p.y-(fy-72))<15;e.hp-=crit?999:48;e.hitTime=.26;killEnemy(e);tell(crit?'KRITIKUS TALÁLAT!':'TALÁLAT',.5);}
  if(c.kind==='barrel'){c.obj.alive=false;explosion(c.obj.x,floorY(c.obj.level)-25);}
  if(c.kind==='switch')toggleDoor(c.obj,'player');
+ if(c.kind==='liftbutton')callLift(c.obj,c.level);
 }
 function bar(x,y,w,v){ctx.fillStyle='#111';ctx.fillRect(x,y,w,6);ctx.fillStyle='#fff';ctx.fillRect(x+1,y+1,(w-2)*clamp(v,0,1),4);ctx.strokeStyle='#ddd';ctx.lineWidth=1;ctx.strokeRect(x,y,w,6);}
 // ORION v3.2: teljes falblokkok, egyetlen 160x190-es grafikai cellában.
@@ -269,6 +313,15 @@ function background(){ctx.fillStyle='#242424';ctx.fillRect(0,0,WW,HH);
    }else tile(kind,x,y-TILE_H);
    if(kind==='enemy_hatch'&&feature&&feature.obj.flash>0){ctx.fillStyle='#eee';ctx.fillRect(x+65,y-105,30,12);}
    ctx.restore();
+  }
+  // Külön célba vehető lifthívó kapcsoló, az eredeti falgrafika módosítása nélkül.
+  for(let li=0;li<elevators.length;li++){
+   const lift=elevators[li];if(!liftStops(lift,f))continue;
+   const b=liftButtonPoint(lift,f),called=!!liftReady[li+':'+f];
+   ctx.fillStyle='#141414';ctx.fillRect(b.x-12,b.y-15,24,30);
+   ctx.strokeStyle='#ddd';ctx.lineWidth=2;ctx.strokeRect(b.x-12,b.y-15,24,30);
+   ctx.fillStyle=called?'#83ff91':'#ffd46d';ctx.beginPath();ctx.arc(b.x,b.y,6,0,Math.PI*2);ctx.fill();
+   if(called){ctx.fillStyle='rgba(245,245,245,.22)';ctx.fillRect(lift.x-32,y-139,64,105);}
   }
   // A járda a falatlasz része; a zárt merőleges ajtó alatt nem rajzolunk rá folyamatos padlóvonalat.
  }
