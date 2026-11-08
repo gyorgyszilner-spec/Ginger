@@ -17,7 +17,12 @@
 #overlay:not(.ending) #start{font-size:12px;padding:6px 12px;min-width:unset}
 #soundbar{bottom:calc(var(--bottombar) + 4px)!important;top:auto!important}
 @media(max-height:450px){:root{--topbar:42px;--bottombar:58px}#buttons button{padding:6px 10px!important;min-width:75px!important;font-size:13px!important}#fire{min-width:85px!important}}
-</style></head><body><canvas id="scene"></canvas><div id="topBand"></div><div id="bottomBand"></div><div id="cross"><i></i></div><div id="impact"></div><div id="hud"><div id="status">SZAKASZ 01 · FEDŐTŰZ</div><div id="team"></div><div id="score"></div></div><div id="ver">ORION v4.6 · KATONÁK ÉS ROBBANÁS</div><div id="notice"></div><div id="soundbar"><button id="soundToggle" title="Hang ki/be">🔊 HANG</button><button id="soundSettings" title="Hangerő">⚙</button><div id="soundPanel" hidden><label>Zene <input id="musicVol" type="range" min="0" max="100" value="55"></label><label>Effektek <input id="sfxVol" type="range" min="0" max="100" value="75"></label><label>Beszéd <input id="voiceVol" type="range" min="0" max="100" value="100"></label></div></div><div id="buttons"><button id="speed">SEB. 2×</button><button id="zoom">ZOOM 1×</button><button id="fire">TŰZ</button></div><button id="zero">KÖZÉP</button><div id="hint">TELEFON MOZGATÁSA: CÉLZÁS ÉS KAMERAGÖRGETÉS · TŰZ / ZOOM / SEBESSÉG</div><div id="overlay"><div id="panel"><h1>ORION · FEDEZŐTŰZ</h1><p>1966-os fekete-fehér sci-fi mesterlövész-próba.<br>Három katonád egy nagy, négyemeletes bázison hajt végre oda-vissza küldetést, majd lifttel visszatér a földszintre és a bejáraton távozik. Védd őket a robotpókoktól és gyíklényektől! A katonák maguk is lőnek, de megsérülhetnek. A lőszer korlátlan. <b>Baráti tűz aktív.</b></p><p>Találd el a lények <b>világos magját / fejét</b> az azonnali kiiktatáshoz. Lődd a kapcsolókat az ajtók nyitásához vagy zárásához, és használd a robbanó hordókat – de vigyázz a sajátjaidra! Minden ajtó kapcsolója csak az egyik oldalon található. A katonák csak a saját oldalukon lévő kapcsolót tudják használni. A csapat a liftnél bevárja az utolsó élőt. A zsákutcában lévő konzolt a katonák 30 másodperc alatt törik fel, miközben fedezned kell őket. Néhány ajtót kizárólag te nyithatsz lövéssel. A lények az ajtókból jönnek; a gyíklény képes ajtót nyitni, a pók nem. A ZOOM gomb a célkereszt körüli kerek céltávcsőben 1× / 1,2× / 1,5× nagyítást vált. A SEB. gomb állítja a célzás érzékenységét. A telefon elforgatásával célzol; a képernyő szélén tartott célkereszt folyamatosan görgeti a pályát. A KÖZÉP gomb a kamerát is visszaállítja.</p><button id="start">KÜLDETÉS INDÍTÁSA</button><p id="msg"></p></div></div><script>
+/* Két oldalsó, 8%-os kurzoros görgetőzóna. Nem fogja el a kattintásokat. */
+#scrollLeft,#scrollRight{position:absolute;top:var(--topbar);bottom:var(--bottombar);width:8vw;z-index:3;pointer-events:none;opacity:0;background:rgba(255,205,75,.23);border-color:rgba(255,210,95,.85);border-style:solid;border-width:0;}
+#scrollLeft{left:0;border-right-width:2px}#scrollRight{right:0;border-left-width:2px}
+#scrollLeft.scrolling,#scrollRight.scrolling{opacity:1;animation:edgeBlink .48s steps(2,end) infinite}
+@keyframes edgeBlink{0%{background:rgba(255,205,75,.34);border-color:#ffd466}50%{background:rgba(255,205,75,.04);border-color:transparent}100%{background:rgba(255,205,75,.34);border-color:#ffd466}}
+</style></head><body><canvas id="scene"></canvas><div id="topBand"></div><div id="bottomBand"></div><div id="scrollLeft"></div><div id="scrollRight"></div><div id="cross"><i></i></div><div id="impact"></div><div id="hud"><div id="status">SZAKASZ 01 · FEDŐTŰZ</div><div id="team"></div><div id="score"></div></div><div id="ver">ORION v4.6 · KATONÁK ÉS ROBBANÁS</div><div id="notice"></div><div id="soundbar"><button id="soundToggle" title="Hang ki/be">🔊 HANG</button><button id="soundSettings" title="Hangerő">⚙</button><div id="soundPanel" hidden><label>Zene <input id="musicVol" type="range" min="0" max="100" value="55"></label><label>Effektek <input id="sfxVol" type="range" min="0" max="100" value="75"></label><label>Beszéd <input id="voiceVol" type="range" min="0" max="100" value="100"></label></div></div><div id="buttons"><button id="speed">SEB. 2×</button><button id="zoom">ZOOM 1×</button><button id="fire">TŰZ</button></div><button id="zero">KÖZÉP</button><div id="hint">TELEFON MOZGATÁSA: CÉLZÁS ÉS KAMERAGÖRGETÉS · TŰZ / ZOOM / SEBESSÉG</div><div id="overlay"><div id="panel"><h1>ORION · FEDEZŐTŰZ</h1><p>1966-os fekete-fehér sci-fi mesterlövész-próba.<br>Három katonád egy nagy, négyemeletes bázison hajt végre oda-vissza küldetést, majd lifttel visszatér a földszintre és a bejáraton távozik. Védd őket a robotpókoktól és gyíklényektől! A katonák maguk is lőnek, de megsérülhetnek. A lőszer korlátlan. <b>Baráti tűz aktív.</b></p><p>Találd el a lények <b>világos magját / fejét</b> az azonnali kiiktatáshoz. Lődd a kapcsolókat az ajtók nyitásához vagy zárásához, és használd a robbanó hordókat – de vigyázz a sajátjaidra! Minden ajtó kapcsolója csak az egyik oldalon található. A katonák csak a saját oldalukon lévő kapcsolót tudják használni. A csapat a liftnél bevárja az utolsó élőt. A zsákutcában lévő konzolt a katonák 30 másodperc alatt törik fel, miközben fedezned kell őket. Néhány ajtót kizárólag te nyithatsz lövéssel. A lények az ajtókból jönnek; a gyíklény képes ajtót nyitni, a pók nem. A ZOOM gomb a célkereszt körüli kerek céltávcsőben 1× / 1,2× / 1,5× nagyítást vált. A SEB. gomb állítja a célzás érzékenységét. A telefon elforgatásával célzol; a képernyő szélén tartott célkereszt folyamatosan görgeti a pályát. A KÖZÉP gomb a kamerát is visszaállítja.</p><button id="start">KÜLDETÉS INDÍTÁSA</button><p id="msg"></p></div></div><script>
 'use strict';
 const $=id=>document.getElementById(id),canvas=$('scene'),ctx=canvas.getContext('2d');
 
@@ -171,38 +176,40 @@ function update(dt){if(!active)return;for(const s of soldiers){if(!s.alive)s.dea
 function camera(){return {sx:scale,tx:-camX*scale,ty:topBandH()-camY*scale};}
 function screenToWorld(x,y){const c=camera();return {x:(x-c.tx)/c.sx,y:(y-c.ty)/c.sx};}
 function aimWorld(){return screenToWorld(aimX,aimY);}
-// Az elforgatott telefon célkeresztje a képernyő szélén a kamerát is görgeti.
-// A görgetés világkoordinátában tárolódik, így nem ránt vissza a csapathoz.
+// Kézi oldalirányú pályagörgetés: csak az egérkurzorral, a szélső 8%-ban.
+// A telefon elforgatása továbbra is kizárólag a célzást vezérli.
+const SCROLL_ZONE=.08,SCROLL_SPEED=450;
 let lookOffsetX=0,lookOffsetY=0,lookActive=false;
+let cursorX=vw/2,cursorY=vh/2,cursorInside=false,scrollDirection=0;
+function updateScrollZone(){
+ const inPlay=cursorInside&&cursorY>=topBandH()&&cursorY<vh-bottomBandH();
+ scrollDirection=!started||!active||!inPlay?0:cursorX<vw*SCROLL_ZONE?-1:cursorX>=vw*(1-SCROLL_ZONE)?1:0;
+ $('scrollLeft').classList.toggle('scrolling',scrollDirection===-1);
+ $('scrollRight').classList.toggle('scrolling',scrollDirection===1);
+}
 function aimCamera(dt){
- const live=living();if(!live.length)return;
+ const live=living();if(!live.length){scrollDirection=0;return;}
  const center=live.reduce((sum,s)=>sum+s.x,0)/live.length;
  const floor=live[0].level;
  const visibleW=vw/scale,visibleH=(vh-topBandH()-bottomBandH())/scale;
  const followX=center-visibleW*.48,followY=floorY(floor)-visibleH+16;
- // A képernyő szélső 17%-ában folyamatos pásztázás, nem csak egyszeri eltolás.
- const edgeX=aimX/vw,edgeY=(aimY-topBandH())/Math.max(1,vh-topBandH()-bottomBandH());
- const pushX=edgeX>.83?(edgeX-.83)/.17:edgeX<.17?-(.17-edgeX)/.17:0;
- const pushY=edgeY>.82?(edgeY-.82)/.18:edgeY<.18?-(.18-edgeY)/.18:0;
- if(Math.abs(pushX)>.04||Math.abs(pushY)>.04)lookActive=true;
- if(lookActive){
-   lookOffsetX+=pushX*650*dt;
-   lookOffsetY+=pushY*420*dt;
- }
- // A nyílbillentyű csak PC-s fejlesztői teszt, nem szükséges a játékhoz.
- if(keys.has('ArrowRight'))lookOffsetX+=650*dt;
- if(keys.has('ArrowLeft'))lookOffsetX-=650*dt;
- if(keys.has('ArrowUp'))lookOffsetY-=420*dt;
- if(keys.has('ArrowDown'))lookOffsetY+=420*dt;
- const maxX=Math.max(0,WW-vw/scale);
- // Ne mutassunk üres területet a legalsó járda alatt. A nézet 3 szint magas.
+ updateScrollZone();
+ // A kézi scroll nem gyorsul, és nem használja a célkereszt helyzetét.
+ if(scrollDirection)lookOffsetX+=scrollDirection*SCROLL_SPEED*dt;
+ // A nyílbillentyűk megmaradnak PC-s teszteléshez, csak vízszintesen.
+ if(keys.has('ArrowRight'))lookOffsetX+=SCROLL_SPEED*dt;
+ if(keys.has('ArrowLeft'))lookOffsetX-=SCROLL_SPEED*dt;
+ const maxX=Math.max(0,WW-visibleW);
  const minY=Math.min(floorY(3)-190,Math.max(0,floorY(0)-visibleH));
  const maxY=Math.max(minY,floorY(0)-visibleH+5);
- let tx=clamp(followX+lookOffsetX,0,maxX),ty=clamp(followY+lookOffsetY,minY,maxY);
- // Ha elérjük a pálya szélét, ne gyűljön fel láthatatlan túlgörgetés.
- lookOffsetX=tx-followX;lookOffsetY=ty-followY;
+ const tx=clamp(followX+lookOffsetX,0,maxX),ty=clamp(followY,minY,maxY);
+ lookOffsetX=tx-followX;
+ lookOffsetY=0;
+ // A kézi görgetés pontosan megáll, amikor a kurzor elhagyja a zónát:
+ // nem marad késleltetett, simított kamera-eltolás.
+ camX=tx;
  const f=1-Math.exp(-dt*7);
- camX+=(tx-camX)*f;camY+=(ty-camY)*f;
+ camY+=(ty-camY)*f;
 }
 function setZoom(){zoom=zoom===1?1.2:zoom===1.2?1.5:1;$('zoom').textContent='ZOOM '+String(zoom).replace('.',',')+'×';}
 function setSpeed(){aimSpeed=aimSpeed===1?2:aimSpeed===2?3:1;$('speed').textContent='SEB. '+aimSpeed+'×';tell('CÉLZÁSI SEBESSÉG: '+aimSpeed+'×',.6);}
@@ -299,6 +306,12 @@ function center(){if(lastGood){base=lastGood;filtered={x:0,y:0};prev=null;lastTi
 function orientEvent(e){if(desktop||!started||e.alpha==null||e.beta==null||e.gamma==null)return;const now=performance.now(),q=orientation(e.alpha,e.beta,e.gamma);lastGood=q;seen++;if(!base){base=q;lastTime=now;return;}const delta=mult(inv(base),q),v=vec(delta),ang=getAngle()*rad,c=Math.cos(ang),s=Math.sin(ang),horiz=v.x*c-v.y*s,vert=v.x*s+v.y*c;let targetX=-horiz*180/PI*7*aimSpeed/2,targetY=vert*180/PI*3.5*aimSpeed/2;const dt=clamp((now-lastTime)/1000,.005,.2);lastTime=now;if(prev&&dt<.15&&(Math.abs(targetX-prev.x)>1500*dt+65||Math.abs(targetY-prev.y)>1500*dt+65))return;prev={x:targetX,y:targetY};const smooth=1-Math.exp(-dt*18);filtered.x+=(targetX-filtered.x)*smooth;filtered.y+=(targetY-filtered.y)*smooth;aimX=clamp(vw/2+filtered.x,28,vw-28);aimY=clamp(vh/2+filtered.y,28,vh-28);$('cross').style.left=aimX+'px';$('cross').style.top=aimY+'px';}
 async function start(){try{if(!desktop && !isSecureContext){$('msg').textContent='Telefonos szenzorhoz HTTPS (vagy localhost) szükséges.';return;}if(!desktop && typeof DeviceOrientationEvent==='undefined'){$('msg').textContent='A böngésző nem támogatja a mozgásszenzort.';return;}if(!desktop && typeof DeviceOrientationEvent.requestPermission==='function'){const result=await DeviceOrientationEvent.requestPermission();if(result!=='granted')throw Error('Engedélyezd a tájolásszenzort.');}started=true;soundStart();if(!desktop)addEventListener('deviceorientation',orientEvent,true);init();$('overlay').style.display='none';if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});if(screen.orientation?.lock)screen.orientation.lock('landscape').catch(()=>{});setTimeout(()=>{if(!desktop&&!seen)tell('NINCS SZENZORADAT – HTTPS / ENGEDÉLY?',4);},2500);}catch(err){$('msg').textContent=err.message||String(err);}}
 $('start').onclick=()=>{if(matchMedia('(pointer:fine)').matches && !('ontouchstart' in window))desktop=true;start();};$('speed').addEventListener('pointerdown',e=>{e.preventDefault();setSpeed();});$('zoom').addEventListener('pointerdown',e=>{e.preventDefault();if(active)setZoom();});$('fire').addEventListener('pointerdown',e=>{e.preventDefault();fire();});$('zero').addEventListener('pointerdown',e=>{e.preventDefault();center();});addEventListener('orientationchange',()=>{base=null;prev=null;lastTime=0;filtered={x:0,y:0};});
+// A kurzor pozíciója az egész ablakban számít, nem csak a canvas felett.
+addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){
+ cursorX=e.clientX;cursorY=e.clientY;cursorInside=true;updateScrollZone();
+}});
+addEventListener('mouseout',e=>{if(!e.relatedTarget){cursorInside=false;updateScrollZone();}});
+addEventListener('blur',()=>{cursorInside=false;updateScrollZone();});
 // Desktop fallback for testing without sensors.
 canvas.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){desktop=true;const r=canvas.getBoundingClientRect();aimX=clamp((e.clientX-r.left)*vw/r.width,0,vw);aimY=clamp((e.clientY-r.top)*vh/r.height,0,vh);$('cross').style.left=aimX+'px';$('cross').style.top=aimY+'px';}});canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'){desktop=true;fire();}});addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();fire();}if(e.key.toLowerCase()==='z')setZoom();if(e.key.toLowerCase()==='v')setSpeed();});
 
