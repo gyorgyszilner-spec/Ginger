@@ -58,7 +58,7 @@ const W=1650,H=900,WW=3300,HH=1050,FLOORS=[880,690,500,310],clamp=(x,a,b)=>Math.
 let vw=innerWidth,vh=innerHeight,dpr=1,scale=1,aimX=vw/2,aimY=vh/2,camX=0,camY=0,zoom=1,aimSpeed=2,desktop=false,started=false,active=false,finished=false,prevFrame=0,elapsed=0,shots=0,hits=0,frags=0,friendHits=0,spawnAt=0,spawnCount=0,lastFire=0,noticeUntil=0,base=null,lastGood=null,prev=null,filtered={x:0,y:0},lastTime=0,seen=0;
 let formationLeaderId=0,formationCooldown=0;
 let soldiers=[],enemies=[],barrels=[],doors=[],portals=[],effects=[],routeIndex=0,holdTime=0,liftTimer=0,liftTravel=false,routeNotice=false,keys=new Set(),manualCamX=0,manualCamY=0;
-let liftThroughput=[{window:-1,count:0},{window:-1,count:0}];let scrollArmed=true;let overkillCharge=0,overkillWindup=0,overkillTarget=null;const OVERKILL_RELOAD=30,OVERKILL_WINDUP=3,OVERKILL_RADIUS=185;let liftCamera=null,liftReady={},liftCooldown=[0,0],liftAnnouncedRoute=-1,liftCountdown=0,hackMarks=0,doorVoiceRoute=-1;
+let aimRecenterPending=false,aimAnchorX=vw/2,aimAnchorY=vh/2;let liftThroughput=[{window:-1,count:0},{window:-1,count:0}];let scrollArmed=true;let overkillCharge=0,overkillWindup=0,overkillTarget=null;const OVERKILL_RELOAD=30,OVERKILL_WINDUP=3,OVERKILL_RADIUS=185;let liftCamera=null,liftReady={},liftCooldown=[0,0],liftAnnouncedRoute=-1,liftCountdown=0,hackMarks=0,doorVoiceRoute=-1;
 const route=[{level:0,x:2870},{level:2,x:2870,lift:1},{level:2,x:470},{level:1,x:470,lift:0},{level:1,x:2550,hold:30},{level:1,x:470},{level:3,x:470,lift:0},{level:3,x:2870},{level:0,x:2870,lift:1},{level:0,x:170,exit:true}];
 const elevators=[{x:470,stops:[0,1,2,3]},{x:2870,stops:[0,2,3]}];
 function liftStops(lift,level){return lift.stops.includes(level);}
@@ -89,7 +89,7 @@ function beginLift(wp,live){
  sfx('elevator',450);tell('LIFT INDUL · '+(to>from?'FEL':'LE'),1.4);
 }
 function doorSwitchPoint(d){return {x:d.x+(d.switchSide<0?-32:32),y:floorY(d.level)-87};}
-function init(){overkillCharge=0;overkillWindup=0;overkillTarget=null;enemies=[];routeIndex=0;formationLeaderId=0;formationCooldown=0;holdTime=0;liftTimer=0;liftTravel=false;liftCamera=null;liftReady={};liftCooldown=[0,0];liftThroughput=[{window:-1,count:0},{window:-1,count:0}];scrollArmed=true;scrollDirection=0;scrollVertical=0;cursorInside=false;lookOffsetX=0;lookOffsetY=0;liftAnnouncedRoute=-1;liftCountdown=0;voicePlaying=0;activeSfx.clear();syncMusic();hackMarks=0;doorVoiceRoute=-1;routeNotice=false;voiceLast={};if('speechSynthesis' in window)speechSynthesis.cancel();camX=0;camY=0;manualCamX=0;manualCamY=0;elapsed=shots=hits=frags=friendHits=spawnCount=0;spawnAt=1.4;zoom=1;lastFire=0;active=true;finished=false;effects=[];
+function init(){overkillCharge=0;overkillWindup=0;overkillTarget=null;enemies=[];routeIndex=0;formationLeaderId=0;formationCooldown=0;holdTime=0;liftTimer=0;liftTravel=false;liftCamera=null;liftReady={};liftCooldown=[0,0];liftThroughput=[{window:-1,count:0},{window:-1,count:0}];scrollArmed=true;aimAnchorX=vw/2;aimAnchorY=vh/2;base=null;lastGood=null;scrollDirection=0;scrollVertical=0;cursorInside=false;lookOffsetX=0;lookOffsetY=0;liftAnnouncedRoute=-1;liftCountdown=0;voicePlaying=0;activeSfx.clear();syncMusic();hackMarks=0;doorVoiceRoute=-1;routeNotice=false;voiceLast={};if('speechSynthesis' in window)speechSynthesis.cancel();camX=0;camY=0;manualCamX=0;manualCamY=0;elapsed=shots=hits=frags=friendHits=spawnCount=0;spawnAt=1.4;zoom=1;lastFire=0;active=true;finished=false;effects=[];
  soldiers=[0,1,2].map(i=>({x:170-i*53,level:0,hp:100,alive:true,cd:rnd(.2,.8),rank:i,dir:1,anim:0,state:'walk',id:i,walkDistance:0,shotTime:0,hitTime:0,deathTime:0,deathStarted:false}));
  // switchSide: -1 = bal oldal, +1 = jobb oldal. MINDEN ajtón pontosan egy kapcsoló.
  doors=[{x:880,level:0,open:false,switchSide:-1},{x:1970,level:0,open:false,switchSide:1},
@@ -417,7 +417,7 @@ function orientation(a,b,g){const x=b*rad/2,y=a*rad/2,z=-g*rad/2,c1=Math.cos(x),
 function vec(q){if(q.w<0)q={w:-q.w,x:-q.x,y:-q.y,z:-q.z};const v=Math.hypot(q.x,q.y,q.z);if(v<1e-7)return {x:0,y:0,z:0};const ang=2*Math.atan2(v,q.w),f=ang/v;return {x:q.x*f,y:q.y*f,z:q.z*f};}
 function center(){
  // A KÖZÉP mindig működik: az érzékelő első mérésére sem kell várni.
- if(lastGood)base=lastGood;
+ base=null;aimRecenterPending=true;
  filtered={x:0,y:0};prev=null;lastTime=0;
  const live=living();const visibleW=vw/scale,visibleH=(vh-topBandH()-bottomBandH())/scale;
  if(live.length){
@@ -430,6 +430,7 @@ function center(){
   const w=camera();aimX=clamp(mid*w.sx+w.tx,0,vw);
   aimY=clamp((floorY(level)-65)*w.sx+w.ty,topBandH(),vh-bottomBandH());
  }else{aimX=vw/2;aimY=(topBandH()+vh-bottomBandH())/2;}
+ aimAnchorX=aimX;aimAnchorY=aimY;
  $('cross').style.left=aimX+'px';$('cross').style.top=aimY+'px';
  // A kézi eltolás a következő frame-ben se húzza vissza a kamerát.
  const followX=live.length?live.reduce((sum,a)=>sum+a.x,0)/live.length-visibleW*.48:0;
@@ -439,9 +440,9 @@ function center(){
  for(const id of ['scrollLeft','scrollRight','scrollUp','scrollDown'])$(id).classList.remove('scrolling');
  tell('CÉLKERESZT ÉS KAMERA KÖZÉPRE',.8);
 }
-function orientEvent(e){if(desktop||!started||e.alpha==null||e.beta==null||e.gamma==null)return;const now=performance.now(),q=orientation(e.alpha,e.beta,e.gamma);lastGood=q;seen++;if(!base){base=q;lastTime=now;return;}const delta=mult(inv(base),q),v=vec(delta),ang=getAngle()*rad,c=Math.cos(ang),s=Math.sin(ang),horiz=v.x*c-v.y*s,vert=v.x*s+v.y*c;let targetX=-horiz*180/PI*7*aimSpeed/2,targetY=vert*180/PI*3.5*aimSpeed/2;const dt=clamp((now-lastTime)/1000,.005,.2);lastTime=now;if(prev&&dt<.15&&(Math.abs(targetX-prev.x)>1500*dt+65||Math.abs(targetY-prev.y)>1500*dt+65))return;prev={x:targetX,y:targetY};const smooth=1-Math.exp(-dt*18);filtered.x+=(targetX-filtered.x)*smooth;filtered.y+=(targetY-filtered.y)*smooth;aimX=clamp(vw/2+filtered.x,0,vw);aimY=clamp(vh/2+filtered.y,topBandH(),vh-bottomBandH());$('cross').style.left=aimX+'px';$('cross').style.top=aimY+'px';}
+function orientEvent(e){if(desktop||!started||e.alpha==null||e.beta==null||e.gamma==null)return;const now=performance.now(),q=orientation(e.alpha,e.beta,e.gamma);lastGood=q;seen++;if(!base||aimRecenterPending){base=q;aimRecenterPending=false;filtered={x:0,y:0};prev=null;lastTime=now;return;}const delta=mult(inv(base),q),v=vec(delta),ang=getAngle()*rad,c=Math.cos(ang),s=Math.sin(ang),horiz=v.x*c-v.y*s,vert=v.x*s+v.y*c;let targetX=-horiz*180/PI*7*aimSpeed/2,targetY=vert*180/PI*3.5*aimSpeed/2;const dt=clamp((now-lastTime)/1000,.005,.2);lastTime=now;if(prev&&dt<.15&&(Math.abs(targetX-prev.x)>1500*dt+65||Math.abs(targetY-prev.y)>1500*dt+65))return;prev={x:targetX,y:targetY};const smooth=1-Math.exp(-dt*18);filtered.x+=(targetX-filtered.x)*smooth;filtered.y+=(targetY-filtered.y)*smooth;aimX=clamp(aimAnchorX+filtered.x,0,vw);aimY=clamp(aimAnchorY+filtered.y,topBandH(),vh-bottomBandH());$('cross').style.left=aimX+'px';$('cross').style.top=aimY+'px';}
 async function start(){try{if(!desktop && !isSecureContext){$('msg').textContent='Telefonos szenzorhoz HTTPS (vagy localhost) szükséges.';return;}if(!desktop && typeof DeviceOrientationEvent==='undefined'){$('msg').textContent='A böngésző nem támogatja a mozgásszenzort.';return;}if(!desktop && typeof DeviceOrientationEvent.requestPermission==='function'){const result=await DeviceOrientationEvent.requestPermission();if(result!=='granted')throw Error('Engedélyezd a tájolásszenzort.');}started=true;soundStart();if(!desktop)addEventListener('deviceorientation',orientEvent,true);init();$('overlay').style.display='none';if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});if(screen.orientation?.lock)screen.orientation.lock('landscape').catch(()=>{});setTimeout(()=>{if(!desktop&&!seen)tell('NINCS SZENZORADAT – HTTPS / ENGEDÉLY?',4);},2500);}catch(err){$('msg').textContent=err.message||String(err);}}
-$('start').onclick=()=>{if(matchMedia('(pointer:fine)').matches && !('ontouchstart' in window))desktop=true;start();};$('speed').addEventListener('pointerdown',e=>{e.preventDefault();setSpeed();});$('zoom').addEventListener('pointerdown',e=>{e.preventDefault();if(active)setZoom();});$('fire').addEventListener('pointerdown',e=>{e.preventDefault();fire();});$('overkill').addEventListener('pointerdown',e=>{e.preventDefault();triggerOverkill();});$('zero').addEventListener('pointerdown',e=>{e.preventDefault();center();});addEventListener('orientationchange',()=>{base=null;prev=null;lastTime=0;filtered={x:0,y:0};});
+$('start').onclick=()=>{if(matchMedia('(pointer:fine)').matches && !('ontouchstart' in window))desktop=true;start();};$('speed').addEventListener('pointerdown',e=>{e.preventDefault();setSpeed();});$('zoom').addEventListener('pointerdown',e=>{e.preventDefault();if(active)setZoom();});$('fire').addEventListener('pointerdown',e=>{e.preventDefault();fire();});$('overkill').addEventListener('pointerdown',e=>{e.preventDefault();triggerOverkill();});$('zero').addEventListener('pointerdown',e=>{e.preventDefault();center();});addEventListener('orientationchange',()=>{base=null;aimRecenterPending=true;prev=null;lastTime=0;filtered={x:0,y:0};});
 // A kurzor pozíciója az egész ablakban számít, nem csak a canvas felett.
 addEventListener('pointermove',e=>{if(e.pointerType==='mouse'){
  cursorX=e.clientX;cursorY=e.clientY;cursorInside=true;updateScrollZone();
